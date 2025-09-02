@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400">
+  <rect x="0" y="0" width="200" height="400" fill="#f8f8f8"/>
+  <circle id="peitoral" cx="100" cy="120" r="35" fill="#cccccc"/>
+  <ellipse id="quadríceps" cx="100" cy="300" rx="45" ry="60" fill="#cccccc"/>
+  <circle id="deltoide_anterior" cx="60" cy="90" r="12" fill="#cccccc"/>
+  <circle id="deltoide_anterior_2" cx="140" cy="90" r="12" fill="#cccccc"/>
+</svg>

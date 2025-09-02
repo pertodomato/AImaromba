@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 400">
+  <rect x="0" y="0" width="200" height="400" fill="#f8f8f8"/>
+  <ellipse id="dorsal" cx="100" cy="130" rx="50" ry="40" fill="#cccccc"/>
+  <ellipse id="glúteos" cx="100" cy="250" rx="40" ry="30" fill="#cccccc"/>
+  <ellipse id="posterior_coxa" cx="100" cy="320" rx="45" ry="55" fill="#cccccc"/>
+  <ellipse id="lombar" cx="100" cy="200" rx="30" ry="25" fill="#cccccc"/>
+</svg>

@@ -1,0 +1,101 @@
+[
+  {
+    "id": "bench_bar",
+    "name": "Supino reto (barra)",
+    "type": "strength",
+    "metrics": {
+      "weight": true,
+      "reps": true,
+      "restSec": true
+    },
+    "primary": [
+      "peitoral"
+    ],
+    "secondary": [
+      "tríceps",
+      "deltoide_anterior"
+    ],
+    "met": 6.0
+  },
+  {
+    "id": "squat_bar",
+    "name": "Agachamento livre (barra)",
+    "type": "strength",
+    "metrics": {
+      "weight": true,
+      "reps": true,
+      "restSec": true
+    },
+    "primary": [
+      "quadríceps",
+      "glúteos"
+    ],
+    "secondary": [
+      "lombar"
+    ],
+    "met": 6.0
+  },
+  {
+    "id": "deadlift_bar",
+    "name": "Levantamento terra (barra)",
+    "type": "strength",
+    "metrics": {
+      "weight": true,
+      "reps": true,
+      "restSec": true
+    },
+    "primary": [
+      "lombar",
+      "glúteos"
+    ],
+    "secondary": [
+      "posterior_coxa"
+    ],
+    "met": 6.0
+  },
+  {
+    "id": "pullup",
+    "name": "Barra fixa",
+    "type": "strength",
+    "metrics": {
+      "weight": false,
+      "reps": true,
+      "restSec": true
+    },
+    "primary": [
+      "dorsal"
+    ],
+    "secondary": [
+      "bíceps"
+    ],
+    "met": 8.0
+  },
+  {
+    "id": "run",
+    "name": "Corrida",
+    "type": "cardio",
+    "metrics": {
+      "distance": true,
+      "time": true
+    },
+    "primary": [
+      "cardio"
+    ],
+    "secondary": [],
+    "met": 8.0
+  },
+  {
+    "id": "bike",
+    "name": "Ciclismo",
+    "type": "cardio",
+    "metrics": {
+      "distance": true,
+      "time": true
+    },
+    "primary": [
+      "cardio"
+    ],
+    "secondary": [],
+    "met": 7.5
+  }
+]

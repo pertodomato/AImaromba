@@ -1,0 +1,43 @@
+name: fitapp
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  muscle_selector:
+    git: https://github.com/EmilCes/muscle_selector
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # Navegação e estado
+  go_router: ^14.2.0
+  flutter_riverpod: ^2.5.1
+  # Offline-first
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.3
+  # Segurança e rede
+  flutter_secure_storage: ^9.2.2
+  http: ^1.2.2
+  # UI e gráficos
+  flutter_svg: ^2.0.10+1
+  fl_chart: ^0.68.0
+  table_calendar: ^3.1.2
+  # Backup
+  archive: ^3.6.1
+  file_picker: ^8.0.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/exercise_db.json
+    - assets/benchmarks.json
+    - assets/taco.json
+    - assets/muscle_front.svg
+    - assets/muscle_back.svg
