@@ -1,11 +1,21 @@
+// fitapp/lib/screens/muscle_screen.dart
 import 'dart:math';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:intl/intl.dart';
 import 'package:muscle_selector/muscle_selector.dart';
+import 'package:muscle_selector/src/parser.dart';
+import '../widgets/app_drawer.dart';
 
-/// Tela: mapa muscular com 2 modos (Treino / Comparativo)
-/// - Usa muscle_selector empilhado por buckets de cor
-/// - Top transparente capta cliques (isEditing: true) e abre detalhes
+class PlaceholderSession {
+  final DateTime date;
+  final String exerciseName;
+  final String muscleGroup;
+  final double weight;
+  final int reps;
+  PlaceholderSession(this.date, this.exerciseName, this.muscleGroup, this.weight, this.reps);
+}
+
 class MuscleScreen extends StatefulWidget {
   const MuscleScreen({super.key});
   @override
@@ -15,373 +25,375 @@ class MuscleScreen extends StatefulWidget {
 enum MuscleMode { treino, comparativo }
 
 class _MuscleScreenState extends State<MuscleScreen> {
+  final GlobalKey<MusclePickerMapState> _mapKey = GlobalKey();
   MuscleMode _mode = MuscleMode.treino;
-  bool _front = true; // opcional se você alternar frente/costas na lib
-  late final Map<String, String> _ptToLib; // mapeia PT -> grupos da lib
+  String? selectedMuscleId;
+  late final List<PlaceholderSession> _placeholderHistory;
+
+  // dicionário de cores para os buckets
+  static const Map<String, Color> _bucketColors = {
+    'green': Colors.green,
+    'yellow': Colors.yellow,
+    'red': Colors.red,
+    'purple': Color(0xFF4A148C),
+  };
 
   @override
   void initState() {
     super.initState();
-    _ptToLib = _buildPtToLibMap();
+    _placeholderHistory = _generatePlaceholderHistoryData();
   }
 
+  // ---------- interação ----------
+  void _resetSelection() {
+    _mapKey.currentState?.clearSelect();
+    setState(() => selectedMuscleId = null);
+  }
+
+  void _onMapChanged(Set<Muscle> muscles) {
+    if (muscles.isEmpty) {
+      setState(() => selectedMuscleId = null);
+    } else {
+      setState(() => selectedMuscleId = muscles.last.id);
+    }
+  }
+
+  List<String> _initialGroupsForMap() {
+    if (selectedMuscleId == null) return const [];
+    final g = _getGroupForMuscleId(selectedMuscleId!);
+    return g.isEmpty ? const [] : [g];
+  }
+
+  String _getGroupForMuscleId(String muscleId) {
+    for (var entry in Parser.muscleGroups.entries) {
+      if (entry.value.contains(muscleId)) return entry.key;
+    }
+    return '';
+  }
+
+  // ---------- UI ----------
   @override
   Widget build(BuildContext context) {
-    final gender = Hive.box('profile').get('gender', defaultValue: 'M'); // 'M' ou 'F'
     final size = MediaQuery.of(context).size;
     final mapWidth = min(420.0, size.width - 32);
     final mapHeight = mapWidth * 1.15;
 
-    // Conjuntos de grupos por bucket de cor
-    final buckets = (_mode == MuscleMode.treino)
-        ? _computeRecencyBuckets(days: 14)
-        : _computePercentileBuckets(gender: gender);
-
-    final green = buckets['green'] ?? const <String>{};
-    final yellow = buckets['yellow'] ?? const <String>{};
-    final red = buckets['red'] ?? const <String>{};
-    final purple = buckets['purple'] ?? const <String>{};
+    final muscleTitle = selectedMuscleId != null
+        ? selectedMuscleId!.replaceAll('_', ' ').split(RegExp(r'(?=\d)')).join(' ').toUpperCase()
+        : 'Análise Muscular';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mapa Muscular'),
+        title: Text(muscleTitle),
         actions: [
-          // alternar modo
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: SegmentedButton<MuscleMode>(
-              segments: const [
-                ButtonSegment(value: MuscleMode.treino, icon: Icon(Icons.whatshot), label: Text('Treino')),
-                ButtonSegment(value: MuscleMode.comparativo, icon: Icon(Icons.bar_chart), label: Text('Comparativo')),
-              ],
-              selected: <MuscleMode>{_mode},
-              showSelectedIcon: false,
-              onSelectionChanged: (s) => setState(() => _mode = s.first),
+          if (selectedMuscleId != null)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              tooltip: 'Limpar Seleção',
+              onPressed: _resetSelection,
             ),
-          ),
         ],
       ),
-      body: ListView(
+      drawer: const AppNavDrawer(),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
-        children: [
-          Center(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                _HeatLayer(groups: green, color: Colors.green, width: mapWidth, height: mapHeight),
-                _HeatLayer(groups: yellow, color: Colors.yellow.shade700, width: mapWidth, height: mapHeight),
-                _HeatLayer(groups: red, color: Colors.red.shade600, width: mapWidth, height: mapHeight),
-                _HeatLayer(groups: purple, color: const Color(0xFF4A148C), width: mapWidth, height: mapHeight),
-
-                // Mapa “invisível” para captar cliques (sem cor/sem stroke visível)
-                IgnorePointer(
-                  ignoring: false,
-                  child: Opacity(
-                    opacity: 0.001, // praticamente invisível
-                    child: MusclePickerMap(
-                      map: Maps.BODY, // a lib expõe esse enum; sem opção por sexo
-                      isEditing: true,
-                      initialSelectedGroups: const [],
-                      onChanged: (muscles) {
-                        // quando o usuário toca, a lib alterna seleção; pegue o último selecionado
-                        if (muscles.isEmpty) return;
-                        final last = muscles.last;
-                        final group = last.group; // nome do grupo (em inglês)
-                        _showMuscleDetails(context, group);
-                      },
-                      actAsToggle: true,
-                      width: mapWidth,
-                      height: mapHeight,
-                      selectedColor: Colors.transparent,
-                      dotColor: Colors.transparent,
-                      strokeColor: Colors.transparent,
-                    ),
-                  ),
-                ),
+        child: Column(
+          children: [
+            _buildControls(),
+            const SizedBox(height: 12),
+            _buildMapWithHeat(mapWidth, mapHeight), // mapa com calor + clique
+            const SizedBox(height: 12),
+            _legend(
+              title: _mode == MuscleMode.treino ? 'Recência de Treino' : 'Nível de Força (Percentil)',
+              items: const [
+                ('Baixo', Colors.green), ('Médio', Colors.yellow),
+                ('Alto', Colors.red), ('Muito Alto', Color(0xFF4A148C)),
               ],
             ),
-          ),
-          const SizedBox(height: 12),
-          _mode == MuscleMode.treino
-              ? _legend(
-                  title: 'Recência (últimos 14 dias)',
-                  items: const [
-                    ('Treinou há bastante', Colors.green),
-                    ('Meia recência', Colors.yellow),
-                    ('Recente', Colors.red),
-                    ('Muito recente', Color(0xFF4A148C)),
-                  ],
-                )
-              : _legend(
-                  title: 'Comparativo (percentis de força)',
-                  items: const [
-                    ('Iniciante / Abaixo', Colors.green),
-                    ('Médio', Colors.yellow),
-                    ('Avançado', Colors.red),
-                    ('Elite (topo)', Color(0xFF4A148C)),
-                  ],
-                ),
-          const SizedBox(height: 8),
-          Text(
-            _mode == MuscleMode.treino
-                ? 'As cores refletem o quão recente você treinou cada grupo (14 dias).'
-                : 'As cores refletem seu nível relativo estimado por grupo (percentis).',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
+            const SizedBox(height: 16),
+            const Divider(),
+            const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: selectedMuscleId == null
+                  ? _buildOverallHistoryView()
+                  : _buildIndividualMuscleHistoryView(selectedMuscleId!),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // ==== Helpers de UI ====
+  Widget _buildControls() {
+    return SegmentedButton<MuscleMode>(
+      segments: const [
+        ButtonSegment(value: MuscleMode.treino, icon: Icon(Icons.whatshot), label: Text('Recência')),
+        ButtonSegment(value: MuscleMode.comparativo, icon: Icon(Icons.bar_chart), label: Text('Percentil')),
+      ],
+      selected: <MuscleMode>{_mode},
+      onSelectionChanged: (s) => setState(() => _mode = s.first),
+    );
+  }
 
-  Widget _legend({required String title, required List<(String, Color)> items}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: items
-              .map((e) => Chip(
-                    avatar: CircleAvatar(backgroundColor: e.$2),
-                    label: Text(e.$1),
+  Widget _buildMapWithHeat(double mapWidth, double mapHeight) {
+    final buckets = (_mode == MuscleMode.treino)
+        ? _computeRecencyBuckets(days: 14)
+        : _computePercentileBuckets();
+
+    return Center(
+      child: SizedBox(
+        width: mapWidth,
+        height: mapHeight,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // Camadas de calor (apenas visuais, não interceptam toques)
+            _HeatLayer(
+              groups: buckets['green'] ?? const <String>{},
+              color: _bucketColors['green']!,
+              width: mapWidth,
+              height: mapHeight,
+            ),
+            _HeatLayer(
+              groups: buckets['yellow'] ?? const <String>{},
+              color: _bucketColors['yellow']!,
+              width: mapWidth,
+              height: mapHeight,
+            ),
+            _HeatLayer(
+              groups: buckets['red'] ?? const <String>{},
+              color: _bucketColors['red']!,
+              width: mapWidth,
+              height: mapHeight,
+            ),
+            _HeatLayer(
+              groups: buckets['purple'] ?? const <String>{},
+              color: _bucketColors['purple']!,
+              width: mapWidth,
+              height: mapHeight,
+            ),
+
+            // Mapa clicável único por cima
+            Listener(
+              behavior: HitTestBehavior.opaque,
+              onPointerDown: (_) => _resetSelection(),
+              child: MusclePickerMap(
+                key: _mapKey,
+                map: Maps.BODY,
+                isEditing: false,
+                actAsToggle: true,
+                initialSelectedGroups: _initialGroupsForMap(),
+                onChanged: _onMapChanged,
+                strokeColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                dotColor: Colors.transparent,
+                selectedColor: const Color(0xFFE0E0E0), // destaque do selecionado
+                width: mapWidth,
+                height: mapHeight,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOverallHistoryView() {
+    return Card(
+      key: const ValueKey('overall_view'),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Evolução Geral (Volume Total)',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 220,
+              child: LineChart(_createChartData(_placeholderHistory, 'Volume')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIndividualMuscleHistoryView(String muscleId) {
+    final muscleGroup = _getGroupForMuscleId(muscleId);
+    final groupHistory =
+        _placeholderHistory.where((s) => s.muscleGroup == muscleGroup).toList();
+
+    return Card(
+      key: ValueKey(muscleId),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Progressão de Carga: ${muscleGroup.toUpperCase()}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 220,
+              child: LineChart(_createChartData(groupHistory, 'Carga (kg)')),
+            ),
+            const Divider(height: 32),
+            const Text('Últimos Treinos Registrados',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            if (groupHistory.isEmpty)
+              const Text('Nenhum treino registrado para este grupo.')
+            else
+              ...groupHistory.reversed.take(4).map((session) => ListTile(
+                    leading: const Icon(Icons.fitness_center, size: 28),
+                    title: Text(session.exerciseName),
+                    subtitle: Text('${session.weight} kg x ${session.reps} reps'),
+                    trailing: Text(DateFormat('dd/MM').format(session.date)),
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ---------- dados fictícios ----------
+  List<PlaceholderSession> _generatePlaceholderHistoryData() {
+    final now = DateTime.now();
+    return [
+      PlaceholderSession(now.subtract(const Duration(days: 30)), 'Supino Reto', 'chest', 80, 8),
+      PlaceholderSession(now.subtract(const Duration(days: 28)), 'Agachamento', 'quads', 100, 6),
+      PlaceholderSession(now.subtract(const Duration(days: 25)), 'Remada Curvada', 'lats', 70, 10),
+      PlaceholderSession(now.subtract(const Duration(days: 23)), 'Supino Reto', 'chest', 82.5, 7),
+      PlaceholderSession(now.subtract(const Duration(days: 21)), 'Agachamento', 'quads', 105, 5),
+      PlaceholderSession(now.subtract(const Duration(days: 18)), 'Barra Fixa', 'lats', 0, 8),
+      PlaceholderSession(now.subtract(const Duration(days: 16)), 'Supino Reto', 'chest', 82.5, 8),
+      PlaceholderSession(now.subtract(const Duration(days: 14)), 'Agachamento', 'quads', 105, 6),
+      PlaceholderSession(now.subtract(const Duration(days: 11)), 'Rosca Direta', 'biceps', 18, 10),
+      PlaceholderSession(now.subtract(const Duration(days: 9)), 'Supino Reto', 'chest', 85, 6),
+      PlaceholderSession(now.subtract(const Duration(days: 7)), 'Agachamento', 'quads', 110, 5),
+      PlaceholderSession(now.subtract(const Duration(days: 4)), 'Rosca Direta', 'biceps', 20, 8),
+      PlaceholderSession(now.subtract(const Duration(days: 2)), 'Supino Reto', 'chest', 85, 7),
+    ];
+  }
+
+  // ---------- gráfico ----------
+  LineChartData _createChartData(List<PlaceholderSession> history, String yTitle) {
+    final Map<DateTime, double> dailyData = {};
+    for (var session in history) {
+      final day = DateTime(session.date.year, session.date.month, session.date.day);
+      final value = (yTitle == 'Volume') ? session.weight * session.reps : session.weight;
+      if (!dailyData.containsKey(day) || value > dailyData[day]!) {
+        dailyData[day] = value;
+      }
+    }
+    final sortedEntries = dailyData.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    final List<FlSpot> spots = List.generate(
+      sortedEntries.length,
+      (i) => FlSpot(i.toDouble(), sortedEntries[i].value),
+    );
+
+    return LineChartData(
+      lineTouchData: LineTouchData(
+        touchTooltipData: LineTouchTooltipData(
+          getTooltipColor: (LineBarSpot s) => Colors.blueGrey.withOpacity(0.8),
+          getTooltipItems: (touchedSpots) => touchedSpots
+              .map((barSpot) => LineTooltipItem(
+                    '${barSpot.y.toStringAsFixed(1)} ${yTitle == "Volume" ? "" : "kg"}',
+                    TextStyle(
+                      color: Theme.of(context).canvasColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ))
               .toList(),
+        ),
+      ),
+      gridData: FlGridData(show: true),
+      titlesData: FlTitlesData(
+        leftTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 40,
+            interval: (yTitle == 'Volume' ? 200 : 10),
+          ),
+        ),
+        bottomTitles: AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            reservedSize: 30,
+            getTitlesWidget: (value, meta) {
+              final i = value.toInt();
+              if (i >= 0 && i < sortedEntries.length) {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    DateFormat('dd/MM').format(sortedEntries[i].key),
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+        rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+      ),
+      borderData: FlBorderData(show: true, border: Border.all(color: Colors.white24)),
+      lineBarsData: [
+        LineChartBarData(
+          spots: spots.isEmpty ? [FlSpot(0, 0)] : spots,
+          isCurved: true,
+          color: Theme.of(context).colorScheme.primary,
+          barWidth: 3,
+          isStrokeCapRound: true,
+          dotData: FlDotData(show: true),
+          belowBarData: BarAreaData(
+            show: true,
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+          ),
         ),
       ],
     );
   }
 
-  Future<void> _showMuscleDetails(BuildContext ctx, String libGroup) async {
-    // lista simples: últimas sessões com exercícios que batem nesse grupo
-    final items = _recentExerciseFactsForGroup(libGroup);
-    if (!ctx.mounted) return;
-    showModalBottomSheet(
-      context: ctx,
-      showDragHandle: true,
-      builder: (_) => SafeArea(
-        child: SizedBox(
-          height: 380,
-          child: items.isEmpty
-              ? const Center(child: Text('Sem registros recentes para esse grupo.'))
-              : ListView.builder(
-                  itemCount: items.length,
-                  itemBuilder: (_, i) {
-                    final m = items[i];
-                    return ListTile(
-                      title: Text(m['exercise'] as String),
-                      subtitle: Text('${m['date']} — ${m['hint']}'),
-                    );
-                  },
-                ),
-        ),
-      ),
-    );
-  }
-
-  // ==== Cálculos de dados ====
-
-  /// Buckets de recência: green/yellow/red/purple (mais antigo → mais recente)
+  // ---------- buckets placeholder ----------
   Map<String, Set<String>> _computeRecencyBuckets({required int days}) {
-    final since = DateTime.now().subtract(Duration(days: days));
-    final sessions = Hive.box('sessions').values.cast<Map>().toList();
-    final exBox = Hive.box('exercises');
-
-    // último treino por grupo
-    final lastTrain = <String, DateTime>{};
-
-    for (final s in sessions) {
-      final dateStr = (s['date'] ?? '') as String;
-      if (dateStr.isEmpty) continue;
-      final d = DateTime.tryParse(dateStr) ?? DateTime.now();
-      if (d.isBefore(since)) continue;
-
-      final entries = (s['exercises'] ?? s['items'] ?? s['results']) as List?;
-      if (entries == null) continue;
-
-      for (final it in entries) {
-        final m = Map<String, dynamic>.from(it as Map);
-        final exId = (m['exerciseId'] ?? m['id'] ?? '').toString();
-        if (exId.isEmpty) continue;
-        final ex = exBox.get(exId) as Map?;
-        if (ex == null) continue;
-
-        final groups = _groupsForExercise(ex);
-        for (final g in groups) {
-          final prev = lastTrain[g];
-          if (prev == null || d.isAfter(prev)) lastTrain[g] = d;
-        }
-      }
-    }
-
-    // bucketização
-    final green = <String>{};
-    final yellow = <String>{};
-    final red = <String>{};
-    final purple = <String>{};
-
-    final now = DateTime.now();
-    lastTrain.forEach((group, dt) {
-      final diff = now.difference(dt).inDays.toDouble();
-      if (diff >= 10) {
-        green.add(group);
-      } else if (diff >= 6) {
-        yellow.add(group);
-      } else if (diff >= 3) {
-        red.add(group);
-      } else {
-        purple.add(group);
-      }
-    });
-
-    return {'green': green, 'yellow': yellow, 'red': red, 'purple': purple};
-  }
-
-  /// Buckets por percentil (usa melhor 1RM/reps salvos no profile)
-  Map<String, Set<String>> _computePercentileBuckets({required String gender}) {
-    // percentis previamente calculados e salvos? Se não, estimamos a partir do profile (simples)
-    final profile = Hive.box('profile');
-
-    double? pSup = (profile.get('p_supino') as num?)?.toDouble();
-    double? pSqt = (profile.get('p_agachamento') as num?)?.toDouble();
-    double? pDl = (profile.get('p_terra') as num?)?.toDouble();
-    double? pPu = (profile.get('p_barra_fixa') as num?)?.toDouble();
-
-    // fallback básico caso não tenha percentis salvos
-    pSup ??= 50;
-    pSqt ??= 50;
-    pDl ??= 50;
-    pPu ??= 50;
-
-    // mapeia percentil para grupos
-    final mapP = <String, double>{
-      'chest': pSup,
-      'delts': pSup,
-      'triceps': pSup,
-      'quads': pSqt,
-      'glutes': max(pSqt, pDl),
-      'lower_back': pDl,
-      'hamstrings': pDl,
-      'lats': pPu,
-      'biceps': pPu,
-      // outros grupos podem ser adicionados conforme seu dataset crescer
-    };
-
-    final green = <String>{};
-    final yellow = <String>{};
-    final red = <String>{};
-    final purple = <String>{};
-
-    mapP.forEach((group, p) {
-      if (p < 40) {
-        green.add(group);
-      } else if (p < 60) {
-        yellow.add(group);
-      } else if (p < 90) {
-        red.add(group);
-      } else {
-        purple.add(group);
-      }
-    });
-
-    return {'green': green, 'yellow': yellow, 'red': red, 'purple': purple};
-  }
-
-  /// Extrai grupos (em inglês, usados pela lib) para um exercício
-  Set<String> _groupsForExercise(Map ex) {
-    final prim = (ex['primary'] as List?)?.cast<String>() ?? const <String>[];
-    final sec = (ex['secondary'] as List?)?.cast<String>() ?? const <String>[];
-    final all = <String>{...prim, ...sec};
-    final libGroups = <String>{};
-
-    for (final pt in all) {
-      final g = _ptToLib[pt.toLowerCase().trim()];
-      if (g != null && g.isNotEmpty) libGroups.add(g);
-    }
-    return libGroups;
-  }
-
-  /// Lista simples para o bottom sheet
-  List<Map<String, String>> _recentExerciseFactsForGroup(String libGroup) {
-    final exBox = Hive.box('exercises');
-    final sessions = Hive.box('sessions').values.cast<Map>().toList().reversed; // mais recentes primeiro
-    final out = <Map<String, String>>[];
-
-    for (final s in sessions) {
-      final dateStr = (s['date'] ?? '') as String;
-      final entries = (s['exercises'] ?? s['items'] ?? s['results']) as List?;
-      if (entries == null) continue;
-
-      for (final it in entries) {
-        final m = Map<String, dynamic>.from(it as Map);
-        final exId = (m['exerciseId'] ?? m['id'] ?? '').toString();
-        if (exId.isEmpty) continue;
-        final ex = exBox.get(exId) as Map?;
-        if (ex == null) continue;
-        final groups = _groupsForExercise(ex);
-        if (!groups.contains(libGroup)) continue;
-
-        final name = (ex['name'] ?? exId).toString();
-        // cria um "hint" simples (peso×reps / distância/tempo se houver)
-        String hint = '';
-        if (m['weight'] != null && m['reps'] != null) {
-          hint = '${m['weight']} kg × ${m['reps']}';
-        } else if (m['distance'] != null || m['time'] != null) {
-          final d = m['distance']; final t = m['time'];
-          if (d != null && t != null) {
-            hint = '${d}km em ${t}min';
-          } else if (d != null) {
-            hint = '${d}km';
-          } else {
-            hint = '${t}min';
-          }
-        } else {
-          hint = 'registrado';
-        }
-        out.add({'date': dateStr, 'exercise': name, 'hint': hint});
-        if (out.length >= 12) return out; // limita
-      }
-    }
-    return out;
-  }
-
-  Map<String, String> _buildPtToLibMap() {
     return {
-      // peito / ombro / braço
-      'peitoral': 'chest',
-      'deltoide_anterior': 'delts',
-      'deltoide lateral': 'delts',
-      'deltoide': 'delts',
-      'tríceps': 'triceps',
-      'triceps': 'triceps',
-      'bíceps': 'biceps',
-      'biceps': 'biceps',
-
-      // costas / núcleo
-      'dorsal': 'lats',
-      'lombar': 'lower_back',
-      'trapézio': 'traps',
-      'trapézio superior': 'traps',
-
-      // pernas
-      'quadríceps': 'quads',
-      'quadriceps': 'quads',
-      'posterior_coxa': 'hamstrings',
-      'isquiotibiais': 'hamstrings',
-      'glúteos': 'glutes',
-      'gluteos': 'glutes',
-      'panturrilhas': 'calves',
-      'panturrilha': 'calves',
-      // cardio “não mapeia” para grupos; ignoramos
-      'cardio': '',
+      'green': {'calves', 'biceps'},
+      'yellow': {'chest', 'delts'},
+      'red': {'quads', 'glutes'},
+      'purple': {'lats', 'hamstrings'}
     };
   }
+
+  Map<String, Set<String>> _computePercentileBuckets() {
+    return {
+      'green': {'triceps', 'lower_back', 'obliques'},
+      'yellow': {'traps', 'calves', 'forearm'},
+      'red': {'biceps', 'chest', 'abs'},
+      'purple': {'quads', 'glutes', 'adductors'}
+    };
+  }
+
+  Widget _legend({required String title, required List<(String, Color)> items}) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+      const SizedBox(height: 6),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: items.map((e) => Chip(avatar: CircleAvatar(backgroundColor: e.$2), label: Text(e.$1))).toList(),
+      ),
+    ],
+  );
 }
 
-/// Uma camada do heatmap (apenas os grupos desse bucket com uma cor)
+// Camada visual de calor que não intercepta toques
 class _HeatLayer extends StatelessWidget {
   final Set<String> groups;
   final Color color;
@@ -391,28 +403,17 @@ class _HeatLayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (groups.isEmpty) {
-      // ainda assim renderizamos a base p/ manter tamanho
-      return MusclePickerMap(
-        map: Maps.BODY,
-        isEditing: false,
-        initialSelectedGroups: const [],
-        selectedColor: Colors.transparent,
-        dotColor: Colors.transparent,
-        strokeColor: Colors.black26,
-        width: width,
-        height: height,
-      );
-    }
-    return MusclePickerMap(
+    final map = MusclePickerMap(
       map: Maps.BODY,
+      onChanged: (muscles) {},
       isEditing: false,
       initialSelectedGroups: groups.toList(),
-      selectedColor: color,
+      selectedColor: groups.isEmpty ? Colors.transparent : color,
       dotColor: Colors.transparent,
       strokeColor: Colors.black26,
       width: width,
       height: height,
     );
+    return IgnorePointer(child: map);
   }
 }

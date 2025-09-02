@@ -21,7 +21,6 @@ Future<void> _firstRunLoad() async {
   final firstRun = settings.get('firstRun', defaultValue: true);
   if (!firstRun) return;
 
-  // Importa JSONs de assets (mínimos)
   final exercisesBox = Hive.box('exercises');
   final exStr = await rootBundle.loadString('assets/exercise_db.json');
   final exList = jsonDecode(exStr) as List;
@@ -35,18 +34,11 @@ Future<void> _firstRunLoad() async {
   final foodStr = await rootBundle.loadString('assets/taco.json');
   Hive.box('foods').put('items', jsonDecode(foodStr));
 
-  // Perfil default
   final profile = Hive.box('profile');
   profile.putAll({
-    'gender': 'M',
-    'age': 25,
-    'weight': 75.0,
-    'height': 175.0,
-    'unitWeight': 'kg',
-    'unitDistance': 'km',
-    'calorieTarget': 2200,
-    'xp': 0,
-    'muscleVolumeScore': <String, double>{},
+    'gender': 'M', 'age': 25, 'weight': 75.0, 'height': 175.0,
+    'unitWeight': 'kg', 'unitDistance': 'km', 'calorieTarget': 2200,
+    'xp': 0, 'muscleVolumeScore': <String, double>{},
   });
 
   settings.put('firstRun', false);
@@ -64,12 +56,39 @@ class FitApp extends ConsumerWidget {
   const FitApp({super.key});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dark = Hive.box('settings').get('darkMode', defaultValue: false);
+    final lightTheme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.deepPurple,
+        brightness: Brightness.light,
+      ),
+    );
+
+    final darkTheme = ThemeData(
+      useMaterial3: true,
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: Colors.tealAccent,
+        brightness: Brightness.dark,
+        background: const Color(0xFF1E1E1E),
+        surface: const Color(0xFF2C2C2C),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Color(0xFF2C2C2C),
+        elevation: 0,
+      ),
+      cardTheme: const CardThemeData(
+        elevation: 2,
+        color: Color(0xFF2C2C2C),
+      ),
+    );
+    
+    // ✅ MUDANÇA AQUI: O ValueListenableBuilder foi removido para simplificar
+    // e o themeMode foi fixado em .dark.
     return MaterialApp.router(
       title: 'FitApp',
-      theme: ThemeData(useMaterial3: true, brightness: Brightness.light),
-      darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark),
-      themeMode: dark ? ThemeMode.dark : ThemeMode.light,
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.dark, // Define o tema escuro como padrão
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),

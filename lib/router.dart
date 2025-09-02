@@ -5,11 +5,11 @@ import 'screens/onboarding_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/muscle_screen.dart';
 import 'screens/library_screen.dart';
-import 'screens/train_sessions_screen.dart'; // << novo nome
+import 'screens/train_sessions_screen.dart';
 import 'screens/planner_screen.dart';
 import 'screens/workout_screen.dart';
 import 'screens/nutrition_screen.dart';
-import 'screens/history_screen.dart';
+// import 'screens/history_screen.dart'; // Removido
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 
@@ -27,11 +27,11 @@ final appRouter = GoRouter(
     GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
     GoRoute(path: '/muscle', builder: (c, s) => const MuscleScreen()),
     GoRoute(path: '/library', builder: (c, s) => const LibraryScreen()),
-    GoRoute(path: '/criar_treinos', builder: (c, s) => const TrainSessionsScreen()), // << sessão
+    GoRoute(path: '/criar_treinos', builder: (c, s) => const TrainSessionsScreen()),
     GoRoute(path: '/planner', builder: (c, s) => const PlannerScreen()),
     GoRoute(path: '/workout/:blockId', builder: (c, s) => WorkoutScreen(blockId: s.pathParameters['blockId']!)),
     GoRoute(path: '/nutrition', builder: (c, s) => const NutritionScreen()),
-    GoRoute(path: '/history', builder: (c, s) => const HistoryScreen()),
+    // GoRoute(path: '/history', builder: (c, s) => const HistoryScreen()), // ✅ ROTA REMOVIDA
     GoRoute(path: '/profile', builder: (c, s) => const ProfileScreen()),
     GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
   ],
