@@ -15,14 +15,19 @@ dependencies:
   go_router: ^14.2.0
   flutter_riverpod: ^2.5.1
 
-  # Offline-first
+  # Offline-first (Drift/SQLite)
+  drift: ^2.18.0
+  sqlite3_flutter_libs: ^0.5.24
+  path_provider: ^2.1.3
+  path: ^1.9.0
+
+  # Hive (será removido no final)
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  path_provider: ^2.1.3
 
   # Segurança e rede
   flutter_secure_storage: ^9.2.2
-  http: ^1.2.2   # <-- deixe APENAS ESTA linha de http
+  http: ^1.2.2
 
   # UI e gráficos
   flutter_svg: ^2.0.10+1
@@ -47,6 +52,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # drift_dev e build_runner
+  drift_dev: ^2.18.0
+  build_runner: ^2.4.11
+  flutter_lints: ^3.0.0
+
+
 flutter:
   uses-material-design: true
   assets:
@@ -55,3 +66,5 @@ flutter:
     - assets/taco.json
     - assets/muscle_front.svg
     - assets/muscle_back.svg
+    - assets/i18n/
+    - assets/prompts/

@@ -1,60 +1,55 @@
+// lib/router.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hive/hive.dart';
+import 'package:fitapp/presentation/providers/repository_providers.dart';
 
 // Core
 import 'screens/onboarding_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/muscle_screen.dart';
-import 'screens/library_screen.dart';
-import 'screens/train_sessions_screen.dart';
-import 'screens/planner_screen.dart';
-import 'screens/workout_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/settings_screen.dart';
+// ... outros imports de tela
 
-// Nutrição (novo dashboard)
-import 'screens/nutrition_screen.dart';
-// fluxos internos do bottom-sheet
-import 'screens/nutrition/add_meal_route.dart';
-import 'screens/nutrition/barcode_scan_screen.dart';
+// Provider para o roteador, para que ele possa ler outros providers
+final routerProvider = Provider<GoRouter>((ref) {
+  
+  // A lógica de redirecionamento agora pode acessar os repositórios
+  String? redirectLogic(BuildContext context, GoRouterState state) {
+    final profileRepo = ref.read(profileRepositoryProvider);
+    // final workoutRepo = ref.read(workoutRepositoryProvider);
+    
+    // NOTA: isFirstRun agora é assíncrono. O ideal é que o `initializationProvider`
+    // já tenha resolvido isso. No momento do roteamento, podemos assumir que
+    // o DB já está populado se necessário.
+    
+    // Lógica futura para redirecionamento de treino ativo
+    // final hasActiveWorkout = workoutRepo.hasActiveWorkoutStream.value;
+    // if (hasActiveWorkout) return '/workout/active';
+    
+    return null; // Sem redirecionamento por enquanto
+  }
 
-final appRouter = GoRouter(
-  initialLocation: '/',
-  routes: [
-    GoRoute(
-      path: '/',
-      redirect: (ctx, st) {
-        final firstRun =
-            Hive.box('settings').get('firstRun', defaultValue: false);
-        return firstRun ? '/onboarding' : '/dashboard';
-      },
-    ),
-    GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
-    GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
-    GoRoute(path: '/muscle', builder: (c, s) => const MuscleScreen()),
-    GoRoute(path: '/library', builder: (c, s) => const LibraryScreen()),
-    GoRoute(path: '/criar_treinos', builder: (c, s) => const TrainSessionsScreen()),
-    GoRoute(path: '/planner', builder: (c, s) => const PlannerScreen()),
-    GoRoute(path: '/profile', builder: (c, s) => const ProfileScreen()),
-    GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen()),
-    GoRoute(
-      path: '/workout/:blockId',
-      builder: (c, s) => WorkoutScreen(blockId: s.pathParameters['blockId']!),
-    ),
+  return GoRouter(
+    initialLocation: '/dashboard', // Simplificado por agora
+    // redirect: redirectLogic, // Habilitar quando os repositórios estiverem completos
+    routes: [
+       GoRoute(
+        path: '/',
+        redirect: (ctx, st) {
+          // A verificação de firstRun é agora gerenciada pelo `initializationProvider`.
+          // O app não chegará aqui na primeira execução até que o `seed` termine.
+          // Portanto, podemos sempre redirecionar para o dashboard.
+          // A lógica de onboarding pode ser um estado dentro do app em vez de um redirect.
+          return '/dashboard';
+        },
+      ),
+      GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
+      GoRoute(path: '/dashboard', builder: (c, s) => const DashboardScreen()),
+      // ... outras rotas
+    ],
+  );
+});
 
-    // -------- Nutrição (dashboard + subrotas internas do sheet)
-    GoRoute(
-      path: '/nutrition',
-      builder: (c, s) => const NutritionScreen(),
-      routes: [
-        GoRoute(
-          path: 'add',
-          builder: (c, s) =>
-              AddMealRoute(initialTab: s.uri.queryParameters['tab']),
-        ),
-        GoRoute(path: 'scan', builder: (c, s) => const BarcodeScanScreen()),
-      ],
-    ),
-  ],
-);
+// Modifique o MaterialApp para usar o routerProvider
+// Em FitApp:
+// final router = ref.watch(routerProvider);
+// return MaterialApp.router(routerConfig: router, ...);

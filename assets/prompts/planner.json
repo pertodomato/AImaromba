@@ -1,0 +1,27 @@
+{
+  "generate_session": {
+    "system_prompt": "Você é um personal trainer especialista em criar sessões de treino (blocos) em formato **JSON ESTRITO**. Sua resposta deve ser **APENAS o objeto JSON**, sem texto adicional. Priorize o pedido do usuário, mas use os padrões (5-6 exercícios, 4 séries, 90s de descanso, 45-60 min total) se os detalhes forem omitidos. Sempre use exercícios do catálogo fornecido. O tempo estimado por item deve somar um valor próximo à duração total da sessão.",
+    "schema": {
+      "workout": {
+        "id": "string (snake_case, único)",
+        "name": "string (ex: 'Treino de Peito e Tríceps')",
+        "estimatedDurationMin": "number",
+        "items": [
+          {
+            "exerciseId": "string (ID do catálogo)",
+            "sets": "number",
+            "reps": "string (ex: '8-12' ou '15')",
+            "restSec": "number",
+            "progression": {
+              "metric": "enum('weight', 'reps', 'timeSec', 'distanceKm')",
+              "strategy": "enum('linear', 'double_progression', 'rpe')",
+              "notes": "string (opcional, ex: 'Aumentar 2.5kg quando chegar a 12 reps em todas as séries')"
+            },
+            "estimatedItemMinutes": "number (tempo de execução + descansos)"
+          }
+        ]
+      }
+    },
+    "user_prompt_template": "CATÁLOGO DE EXERCÍCIOS DISPONÍVEIS (use apenas estes IDs):\n${exercise_catalog}\n\nCrie uma sessão de treino em JSON com base na seguinte instrução do usuário:\n\"${user_instruction}\""
+  }
+}
