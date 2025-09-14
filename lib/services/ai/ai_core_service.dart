@@ -3,13 +3,12 @@ import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
-/// Camada baixa: fala com a API, gerencia fallback e logs.
-/// Não conhece schema nem prompt dos domínios (exercício/sessão).
+/// Camada baixa de IA: fala com a API, gerencia fallback e logs.
+/// Não conhece schema/prompt dos domínios.
 class AICore {
   // Endpoint
   static const String endpoint = 'https://api.openai.com/v1/chat/completions';
-  static String trimForLog(String s, [int max = 1600]) =>
-    s.length <= max ? s : '${s.substring(0, max)}... <truncated>';
+
   // Ordem de modelos: primário → fallbacks
   static const String modelPrimary   = 'gpt-5';
   static const String modelFallback1 = 'gpt-5-mini';
@@ -29,10 +28,14 @@ class AICore {
 
   static bool _isGpt5Family(String m) => m.startsWith('gpt-5');
 
-  static String _trim(String s, [int max = 1600]) =>
+  static String trimForLog(String s, [int max = 1600]) =>
       s.length <= max ? s : '${s.substring(0, max)}... <truncated>';
 
-  /// Chamada mínima ao /chat/completions (sem params que quebram gpt-5).
+  static String _trim(String s, [int max = 1600]) => trimForLog(s, max);
+
+  // ============================================================
+  // CHAMADA CRUA (texto→texto)
+  // ============================================================
   static Future<String> chatOnce({
     required String model,
     required String system,
@@ -56,12 +59,10 @@ class AICore {
       bodyMap['response_format'] = {'type': 'json_object'};
     }
 
-    final body = jsonEncode(bodyMap);
-
     if (enableDebugLogs) {
       debugPrint('🛰️ AI.chatOnce → POST $endpoint');
       debugPrint('🧠 model=$model | forceJson=${forceJsonWhenSafe && !_isGpt5Family(model)}');
-      debugPrint('📤 payload: ${_trim(body)}');
+      debugPrint('📤 payload: ${_trim(jsonEncode(bodyMap))}');
     }
 
     final resp = await http.post(
@@ -70,7 +71,7 @@ class AICore {
         'Authorization': 'Bearer $key',
         'Content-Type': 'application/json',
       },
-      body: body,
+      body: jsonEncode(bodyMap),
     );
 
     if (enableDebugLogs) {
@@ -113,5 +114,71 @@ class AICore {
       user: user,
       forceJsonWhenSafe: true,
     );
+  }
+}
+
+/// Extensão para VISÃO (imagem → JSON estrito)
+extension AICoreVision on AICore {
+  static const String visionModel = 'gpt-4o-mini'; // suporta imagem + JSON
+
+  /// `dataUrlImage`: "data:image/jpeg;base64,...."
+  static Future<String> chatVisionOnce({
+    required String system,
+    required String userText,
+    required String dataUrlImage,
+  }) async {
+    final key = await AICore._effectiveKey();
+
+    final bodyMap = {
+      'model': visionModel,
+      'messages': [
+        {'role': 'system', 'content': system},
+        {
+          'role': 'user',
+          'content': [
+            {'type': 'text', 'text': userText},
+            {'type': 'image_url', 'image_url': {'url': dataUrlImage}}
+          ]
+        }
+      ],
+      'response_format': {'type': 'json_object'},
+    };
+
+    if (AICore.enableDebugLogs) {
+      debugPrint('🛰️ AI.chatVisionOnce → POST ${AICore.endpoint}');
+      debugPrint('🧠 model=$visionModel');
+    }
+
+    final resp = await http.post(
+      Uri.parse(AICore.endpoint),
+      headers: {
+        'Authorization': 'Bearer $key',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(bodyMap),
+    );
+
+    if (AICore.enableDebugLogs) {
+      debugPrint('📥 status: ${resp.statusCode}');
+      debugPrint('📥 body: ${AICore.trimForLog(resp.body)}');
+    }
+
+    if (resp.statusCode < 200 || resp.statusCode >= 300) {
+      throw Exception('HTTP ${resp.statusCode}: ${resp.body}');
+    }
+
+    final data = jsonDecode(resp.body) as Map<String, dynamic>;
+    final content = (data['choices']?[0]?['message']?['content'] ?? '').toString();
+    if (content.isEmpty) throw Exception('Resposta vazia (visão).');
+    return content;
+  }
+
+  static Future<String> chatVisionOnceWithFallback({
+    required String system,
+    required String userText,
+    required String dataUrlImage,
+  }) async {
+    // Mantemos simples: reusa o mesmo modelo (o importante é funcionar)
+    return await chatVisionOnce(system: system, userText: userText, dataUrlImage: dataUrlImage);
   }
 }

@@ -1,15 +1,24 @@
+// lib/main.dart
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'router.dart';
 
 Future<void> _ensureBoxes() async {
-  for (final name in [
-    'settings','profile','exercises','benchmarks','foods',
-    'blocks','routine','sessions','foodlogs'
-  ]) {
+  const boxes = [
+    'settings','profile','exercises','benchmarks',
+    'foods',            // TACO (lista em foods.items)
+    'meals',            // suas refeições customizadas (chaveadas por id)
+    'blocks','routine','sessions',
+    'foodlogs',         // logs de refeições do dia
+    'nutrition_routines',
+    'meal_photos',      // opcional (se quiser guardar bytes)
+    'barcodes',
+  ];
+  for (final name in boxes) {
     if (!Hive.isBoxOpen(name)) {
       await Hive.openBox(name);
     }
@@ -36,9 +45,14 @@ Future<void> _firstRunLoad() async {
 
   final profile = Hive.box('profile');
   profile.putAll({
-    'gender': 'M', 'age': 25, 'weight': 75.0, 'height': 175.0,
-    'unitWeight': 'kg', 'unitDistance': 'km', 'calorieTarget': 2200,
-    'xp': 0, 'muscleVolumeScore': <String, double>{},
+    'gender': 'M',
+    'age': 25,
+    'weight': 75.0,
+    'height': 175.0,
+    'unitWeight': 'kg',
+    'unitDistance': 'km',
+    'calorieTarget': 2200,
+    'muscleVolumeScore': <String, double>{},
   });
 
   settings.put('firstRun', false);
@@ -54,6 +68,7 @@ void main() async {
 
 class FitApp extends ConsumerWidget {
   const FitApp({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final lightTheme = ThemeData(
@@ -64,34 +79,38 @@ class FitApp extends ConsumerWidget {
       ),
     );
 
+    final darkScheme =
+        ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark);
+
     final darkTheme = ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.tealAccent,
-        brightness: Brightness.dark,
-        background: const Color(0xFF1E1E1E),
-        surface: const Color(0xFF2C2C2C),
-      ),
+      colorScheme: darkScheme,
+      scaffoldBackgroundColor: const Color(0xFF1E1E1E),
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFF2C2C2C),
         elevation: 0,
       ),
+      // 👇 correção aqui: CardThemeData (não CardTheme)
       cardTheme: const CardThemeData(
         elevation: 2,
         color: Color(0xFF2C2C2C),
       ),
     );
-    
-    // ✅ MUDANÇA AQUI: O ValueListenableBuilder foi removido para simplificar
-    // e o themeMode foi fixado em .dark.
+
     return MaterialApp.router(
       title: 'FitApp',
       theme: lightTheme,
       darkTheme: darkTheme,
-      themeMode: ThemeMode.dark, // Define o tema escuro como padrão
+      themeMode: ThemeMode.dark,
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
       locale: const Locale('pt', 'BR'),
+      supportedLocales: const [Locale('pt', 'BR'), Locale('en')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
     );
   }
 }
