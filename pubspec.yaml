@@ -11,39 +11,27 @@ dependencies:
   flutter_localizations:
     sdk: flutter
 
-  # Navegação e estado
   go_router: ^14.2.0
   flutter_riverpod: ^2.5.1
 
-  # Offline-first (Drift/SQLite)
-  drift: ^2.18.0
-  sqlite3_flutter_libs: ^0.5.24
+  # SQL
+  sqflite: ^2.3.0
+  sqflite_common_ffi: ^2.3.6         # desktop
+  sqflite_common_ffi_web: ^0.4.5+4   # web (combina com o setup que você rodou)
   path_provider: ^2.1.3
   path: ^1.9.0
 
-  # Hive (será removido no final)
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
-
-  # Segurança e rede
   flutter_secure_storage: ^9.2.2
   http: ^1.2.2
-
-  # UI e gráficos
   flutter_svg: ^2.0.10+1
   fl_chart: ^0.68.0
   table_calendar: ^3.1.2
-
-  # Backup/arquivos
   archive: ^3.6.1
   file_picker: ^8.0.5
-
-  # Imagens / câmera / códigos de barras
   image: ^4.1.7
   image_picker: ^1.0.7
   mobile_scanner: ^5.2.3
 
-  # Pacote do mapa muscular (git)
   muscle_selector:
     git:
       url: https://github.com/EmilCes/muscle_selector
@@ -51,12 +39,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # drift_dev e build_runner
-  drift_dev: ^2.18.0
-  build_runner: ^2.4.11
   flutter_lints: ^3.0.0
-
 
 flutter:
   uses-material-design: true
@@ -66,5 +49,5 @@ flutter:
     - assets/taco.json
     - assets/muscle_front.svg
     - assets/muscle_back.svg
-    - assets/i18n/
     - assets/prompts/
+  # remova 'assets/i18n/' se a pasta não existir

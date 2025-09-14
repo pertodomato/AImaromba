@@ -1,92 +1,51 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fitapp/presentation/providers/repository_providers.dart';
-import 'router.dart';
+import 'package:sqflite/sqflite.dart';
 
-// Provider para o estado de inicialização
-final initializationProvider = FutureProvider<void>((ref) async {
-  final profileRepo = ref.read(profileRepositoryProvider);
-  final isFirstRun = await profileRepo.isFirstRun();
-  if (isFirstRun) {
-    await profileRepo.seedInitialData();
-  }
-});
+import 'data/db/db_factory.dart';
+
+Future<void> _smokeTest() async {
+  final db = await openDatabase('fitapp.db', version: 1, onCreate: (db, v) async {
+    await db.execute('CREATE TABLE IF NOT EXISTS profiles(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)');
+  });
+  await db.insert('profiles', {'name': 'Default'}, conflictAlgorithm: ConflictAlgorithm.ignore);
+  await db.query('profiles');
+  await db.close();
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // O Hive será removido completamente na próxima fase.
-  // Por enquanto, o código antigo que depende dele pode precisar que ele
-  // seja inicializado, mas a nova lógica não o usará.
-
-  runApp(const ProviderScope(child: AppLoading()));
+  await initDbFactory(); // definido via import condicional
+  runApp(const FitApp());
 }
 
-class AppLoading extends ConsumerWidget {
-  const AppLoading({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Assiste ao provider de inicialização. Enquanto ele está carregando,
-    // mostramos uma tela de splash. Quando termina, mostramos o app.
-    final init = ref.watch(initializationProvider);
-
-    return init.when(
-      data: (_) => const FitApp(),
-      loading: () => const MaterialApp(
-        home: Scaffold(body: Center(child: CircularProgressIndicator())),
-      ),
-      error: (err, stack) => MaterialApp(
-        home: Scaffold(body: Center(child: Text('Erro ao inicializar o app: $err'))),
-      ),
-    );
-  }
-}
-
-
-class FitApp extends ConsumerWidget {
+class FitApp extends StatelessWidget {
   const FitApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final lightTheme = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.deepPurple,
-        brightness: Brightness.light,
-      ),
-    );
-
-    final darkTheme = ThemeData(
+  Widget build(BuildContext context) {
+    final theme = ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark),
-      scaffoldBackgroundColor: const Color(0xFF1E1E1E),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Color(0xFF2C2C2C),
-        elevation: 0,
-      ),
-      cardTheme: const CardTheme(
-        elevation: 2,
-        color: Color(0xFF2C2C2C),
-      ),
+      cardTheme: const CardThemeData(),
     );
 
-    return MaterialApp.router(
+    return MaterialApp(
       title: 'FitApp',
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      themeMode: ThemeMode.dark,
-      routerConfig: appRouter,
+      theme: theme,
+      home: FutureBuilder<void>(
+        future: _smokeTest(),
+        builder: (context, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+          if (snap.hasError) {
+            return Scaffold(body: Center(child: Text('DB erro: ${snap.error}')));
+          }
+          return const Scaffold(body: Center(child: Text('OK')));
+        },
+      ),
       debugShowCheckedModeBanner: false,
-      locale: const Locale('pt', 'BR'),
-      supportedLocales: const [Locale('pt', 'BR'), Locale('en', 'US')],
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
     );
   }
 }
