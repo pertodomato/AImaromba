@@ -1,20 +1,19 @@
-// lib/data/repositories/implementations/nutrition_repository_impl.dart
 import 'package:drift/drift.dart';
 import 'package:fitapp/data/db/app_database.dart';
 import 'package:fitapp/data/repositories/nutrition_repository.dart';
-import 'package:fitapp/domain/entities/nutrition.dart';
+import 'package:fitapp/domain/entities/nutrition.dart' as domain;
 
 class NutritionRepositoryImpl implements NutritionRepository {
   final AppDatabase _db;
   NutritionRepositoryImpl(this._db);
 
   @override
-  Future<void> saveFoodLog(FoodLogInput input) async {
+  Future<void> saveFoodLog(domain.FoodLogInput input) async {
     final companion = FoodLogsCompanion.insert(
       profileId: input.profileId,
-      timestamp: DateTime.now(),
-      source: input.source,
-      kcal: input.kcal,
+      date: input.date,
+      mealType: input.mealType.name,
+      calories: input.calories,
       protein: input.protein,
       carbs: input.carbs,
       fat: input.fat,
@@ -25,48 +24,32 @@ class NutritionRepositoryImpl implements NutritionRepository {
   }
 
   @override
-  Stream<DailyNutrition> today(int profileId) {
-    final now = DateTime.now();
-    final startOfDay = DateTime(now.year, now.month, now.day);
-    final endOfDay = startOfDay.add(const Duration(days: 1));
+  Future<domain.DailyNutrition> getDaily(int profileId, DateTime day) async {
+    final start = DateTime(day.year, day.month, day.day);
+    final end = start.add(const Duration(days: 1));
 
-    final logsQuery = _db.select(_db.foodLogs)
-      ..where((tbl) => tbl.profileId.equals(profileId))
-      ..where((tbl) => tbl.timestamp.isBetweenValues(startOfDay, endOfDay));
-      
-    final goalsQuery = _db.select(_db.nutritionGoals)
-      ..where((tbl) => tbl.profileId.equals(profileId))
-      ..orderBy([(t) => OrderingTerm.desc(t.id)])
-      ..limit(1);
+    final q = (_db.select(_db.foodLogs)
+      ..where((t) => t.profileId.equals(profileId))
+      ..where((t) => t.date.isBiggerOrEqualValue(start))
+      ..where((t) => t.date.isSmallerThanValue(end)));
 
-    // Combina os dois streams
-    return logsQuery.watch().combineLatest(goalsQuery.watchSingleOrNull(), (logs, goal) {
-      double kcal = 0, p = 0, c = 0, f = 0;
-      for (final log in logs) {
-        kcal += log.kcal;
-        p += log.protein;
-        c += log.carbs;
-        f += log.fat;
-      }
-      
-      return DailyNutrition(
-        consumedKcal: kcal,
-        consumedProtein: p,
-        consumedCarbs: c,
-        consumedFat: f,
-        targetKcal: goal?.kcal ?? 2000,
-        targetProtein: goal?.protein ?? 150,
-        targetCarbs: goal?.carbs ?? 250,
-        targetFat: goal?.fat ?? 60,
-        logs: logs.map((log) => FoodLogEntry(
-          name: log.notes ?? 'Refeição',
-          grams: 0, // O modelo de log não tem gramas, simplificando
-          kcal: log.kcal,
-          protein: log.protein,
-          carbs: log.carbs,
-          fat: log.fat,
-        )).toList(),
-      );
-    });
+    final logs = await q.get();
+
+    var cals = 0;
+    var p = 0.0, c = 0.0, f = 0.0;
+    for (final l in logs) {
+      cals += l.calories;
+      p += l.protein;
+      c += l.carbs;
+      f += l.fat;
+    }
+
+    return domain.DailyNutrition(
+      date: start,
+      calories: cals,
+      protein: p,
+      carbs: c,
+      fat: f,
+    );
   }
 }

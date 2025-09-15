@@ -14,13 +14,14 @@ dependencies:
   go_router: ^14.2.0
   flutter_riverpod: ^2.5.1
 
-  # SQL
-  sqflite: ^2.3.0
-  sqflite_common_ffi: ^2.3.6         # desktop
-  sqflite_common_ffi_web: ^0.4.5+4   # web (combina com o setup que você rodou)
+  # Drift + SQLite nativo + Web (wasm)
+  drift: ^2.17.0
+  drift_flutter: ^0.2.0
+  sqlite3_flutter_libs: ^0.5.24
+
+  # Úteis
   path_provider: ^2.1.3
   path: ^1.9.0
-
   flutter_secure_storage: ^9.2.2
   http: ^1.2.2
   flutter_svg: ^2.0.10+1
@@ -40,6 +41,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  drift_dev: ^2.17.0
+  build_runner: ^2.7.2
 
 flutter:
   uses-material-design: true
@@ -50,4 +53,3 @@ flutter:
     - assets/muscle_front.svg
     - assets/muscle_back.svg
     - assets/prompts/
-  # remova 'assets/i18n/' se a pasta não existir

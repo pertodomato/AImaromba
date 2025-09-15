@@ -1,12 +1,12 @@
-// lib/screens/nutrition/add_meal_route.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../data/repositories/profile_repository.dart';
+
 import '../../domain/entities/nutrition.dart';
-import '../../external/ai/get_response.dart';
 import '../../presentation/providers/repository_providers.dart';
+import '../../external/ai/get_response.dart';
+import '../../services/ai/nutrition_vision_service.dart';
 
 class AddMealRoute extends StatefulWidget {
   final String? initialTab; // 'photo' | 'text'
@@ -26,7 +26,10 @@ class _AddMealRouteState extends State<AddMealRoute> with SingleTickerProviderSt
   }
 
   @override
-  void dispose() { _tab.dispose(); super.dispose(); }
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,33 +44,39 @@ class _AddMealRouteState extends State<AddMealRoute> with SingleTickerProviderSt
           ],
         ),
       ),
-      body: TabBarView(controller: _tab, children: const [_PhotoTab(), _TextTab()]),
+      body: const TabBarView(
+        children: [_PhotoTab(), _TextTab()],
+      ),
     );
   }
 }
 
-// Classe base para compartilhar a lógica de salvar
-abstract class _MealTabState<T extends StatefulWidget> extends ConsumerState<T> {
+// ----- base state -----
+abstract class _MealTabState<T extends ConsumerStatefulWidget> extends ConsumerState<T> {
   bool _loading = false;
   String? _error;
   Map<String, dynamic>? _mealResult;
 
-  void setLoading(bool loading) => setState(() => _loading = loading);
-  void setError(String? error) => setState(() => _error = error);
-  void setMealResult(Map<String, dynamic>? result) => setState(() => _mealResult = result);
+  void setLoading(bool v) => setState(() => _loading = v);
+  void setError(String? v) => setState(() => _error = v);
+  void setMealResult(Map<String, dynamic>? r) => setState(() => _mealResult = r);
 
   Future<void> _saveMeal(String source) async {
     if (_mealResult == null) return;
-    
+
+    // Se ainda não tiver ProfileRepository, troque por "final profileId = 1;"
     final profile = await ref.read(profileRepositoryProvider).getActive();
+    final profileId = profile.id;
+
     final input = FoodLogInput(
-      profileId: profile.id,
+      profileId: profileId,
       source: source,
       kcal: (_mealResult!['kcal'] as num?)?.toDouble() ?? 0,
       protein: (_mealResult!['protein'] as num?)?.toDouble() ?? 0,
       carbs: (_mealResult!['carbs'] as num?)?.toDouble() ?? 0,
       fat: (_mealResult!['fat'] as num?)?.toDouble() ?? 0,
       notes: _mealResult!['description']?.toString(),
+      barcode: null,
     );
 
     try {
@@ -86,36 +95,42 @@ abstract class _MealTabState<T extends StatefulWidget> extends ConsumerState<T> 
   }
 
   Widget buildResultCard(String source) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) return Text('Erro: $_error', style: const TextStyle(color: Colors.red));
-    if (_mealResult != null) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Detectado: ${_mealResult!['description'] ?? 'N/A'}'),
-              const SizedBox(height: 8),
-              Text('kcal:${_mealResult!['kcal']} P:${_mealResult!['protein']} C:${_mealResult!['carbs']} G:${_mealResult!['fat']}'),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: () => _saveMeal(source),
-                icon: const Icon(Icons.save),
-                label: const Text('Salvar Refeição'),
-              )
-            ],
-          ),
-        ),
+    if (_loading) return const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()));
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.all(8),
+        child: Text('Erro: $_error', style: const TextStyle(color: Colors.red)),
       );
     }
-    return const SizedBox.shrink();
+    if (_mealResult == null) return const SizedBox.shrink();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Detectado: ${_mealResult!['description'] ?? 'N/A'}'),
+          const SizedBox(height: 8),
+          Text('kcal: ${_mealResult!['kcal']}  •  P: ${_mealResult!['protein']}  •  C: ${_mealResult!['carbs']}  •  G: ${_mealResult!['fat']}'),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _saveMeal(source),
+            icon: const Icon(Icons.save),
+            label: const Text('Salvar Refeição'),
+          )
+        ]),
+      ),
+    );
   }
 }
 
-class _PhotoTab extends ConsumerStatefulWidget { const _PhotoTab(); @override ConsumerState<_PhotoTab> createState() => _PhotoTabState(); }
+// ----- Foto (Visão) -----
+class _PhotoTab extends ConsumerStatefulWidget {
+  const _PhotoTab();
+  @override
+  ConsumerState<_PhotoTab> createState() => _PhotoTabState();
+}
+
 class _PhotoTabState extends _MealTabState<_PhotoTab> {
-  
   Future<void> _pickAndAnalyze(ImageSource src) async {
     final x = await ImagePicker().pickImage(source: src, imageQuality: 75, maxWidth: 1024);
     if (x == null) return;
@@ -125,15 +140,8 @@ class _PhotoTabState extends _MealTabState<_PhotoTab> {
     setMealResult(null);
 
     try {
-      final aiService = ref.read(aiServiceProvider);
-      // Aqui, o ideal seria passar a imagem em base64, mas o getResponse atual não suporta
-      // Vamos simular com o nome do arquivo por enquanto, a lógica real precisaria de um
-      // método específico para visão na fachada.
-      final result = await aiService.getResponse(
-        promptFile: 'nutrition.json',
-        promptKey: 'meal_from_text', // Usando texto como fallback
-        placeholders: {'user_description': 'Uma foto de um prato de comida.'}, // Placeholder
-      );
+      final Uint8List bytes = await x.readAsBytes();
+      final result = await NutritionVisionService.analyze(bytes);
       setMealResult(result);
     } catch (e) {
       setError(e.toString());
@@ -141,19 +149,25 @@ class _PhotoTabState extends _MealTabState<_PhotoTab> {
       setLoading(false);
     }
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(
-          children: [
-            ElevatedButton.icon(onPressed: () => _pickAndAnalyze(ImageSource.camera), icon: const Icon(Icons.photo_camera), label: const Text('Câmera')),
-            const SizedBox(width: 12),
-            OutlinedButton.icon(onPressed: () => _pickAndAnalyze(ImageSource.gallery), icon: const Icon(Icons.image), label: const Text('Galeria')),
-          ],
-        ),
+        Row(children: [
+          ElevatedButton.icon(
+            onPressed: () => _pickAndAnalyze(ImageSource.camera),
+            icon: const Icon(Icons.photo_camera),
+            label: const Text('Câmera'),
+          ),
+          const SizedBox(width: 12),
+          OutlinedButton.icon(
+            onPressed: () => _pickAndAnalyze(ImageSource.gallery),
+            icon: const Icon(Icons.image),
+            label: const Text('Galeria'),
+          ),
+        ]),
         const SizedBox(height: 16),
         buildResultCard('photo_ia'),
       ],
@@ -161,13 +175,20 @@ class _PhotoTabState extends _MealTabState<_PhotoTab> {
   }
 }
 
-class _TextTab extends ConsumerStatefulWidget { const _TextTab(); @override ConsumerState<_TextTab> createState() => _TextTabState(); }
+// ----- Texto (LLM) -----
+class _TextTab extends ConsumerStatefulWidget {
+  const _TextTab();
+  @override
+  ConsumerState<_TextTab> createState() => _TextTabState();
+}
+
 class _TextTabState extends _MealTabState<_TextTab> {
   final _controller = TextEditingController();
 
   Future<void> _sendToIA() async {
-    if (_controller.text.trim().isEmpty) return;
-    
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+
     setLoading(true);
     setError(null);
     setMealResult(null);
@@ -176,7 +197,7 @@ class _TextTabState extends _MealTabState<_TextTab> {
       final result = await ref.read(aiServiceProvider).getResponse(
         promptFile: 'nutrition.json',
         promptKey: 'meal_from_text',
-        placeholders: {'user_description': _controller.text.trim()},
+        placeholders: {'user_description': text},
       );
       setMealResult(result);
     } catch (e) {
@@ -192,14 +213,19 @@ class _TextTabState extends _MealTabState<_TextTab> {
       padding: const EdgeInsets.all(16),
       children: [
         TextField(
-          controller: _controller, maxLines: 4,
+          controller: _controller,
+          maxLines: 4,
           decoration: const InputDecoration(
             hintText: 'Descreva a refeição (ex.: 150g arroz, 120g frango grelhado, salada)',
             border: OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 8),
-        ElevatedButton.icon(onPressed: _sendToIA, icon: const Icon(Icons.psychology), label: const Text('Analisar com IA')),
+        ElevatedButton.icon(
+          onPressed: _sendToIA,
+          icon: const Icon(Icons.psychology),
+          label: const Text('Analisar com IA'),
+        ),
         const SizedBox(height: 12),
         buildResultCard('text_ia'),
       ],

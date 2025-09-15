@@ -1,8 +1,5 @@
-// lib/data/repositories/scan_repository.dart
+import 'package:fitapp/domain/entities/nutrition.dart';
 
-// Stubs de modelos
-class Food {}
-
-abstract interface class ScanRepository {
-  Future<Food?> lookupByBarcode(String barcode);
+abstract class ScanRepository {
+  Future<FoodProduct?> lookupByBarcode(String barcode);
 }

@@ -1,11 +1,6 @@
-// lib/data/repositories/nutrition_repository.dart
+import 'package:fitapp/domain/entities/nutrition.dart' as domain;
 
-// Stubs de modelos
-typedef ProfileId = int;
-class FoodLogInput {}
-class DailyNutrition {}
-
-abstract interface class NutritionRepository {
-  Future<void> saveFoodLog(FoodLogInput input); // usado por foto, texto e barcode
-  Stream<DailyNutrition> today(ProfileId id);
+abstract class NutritionRepository {
+  Future<void> saveFoodLog(domain.FoodLogInput input);
+  Future<domain.DailyNutrition> getDaily(int profileId, DateTime day);
 }
