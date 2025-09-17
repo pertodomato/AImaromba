@@ -1,3 +1,10 @@
 export 'user_profile.dart';
 export 'exercise.dart';
-// ... e assim por diante para todos os outros
+export 'workout_session.dart';
+export 'workout_day.dart';
+export 'workout_routine.dart';
+export 'meal.dart';
+export 'meal_entry.dart';
+export 'weight_entry.dart';
+export 'diet_day.dart';
+export 'diet_routine.dart';

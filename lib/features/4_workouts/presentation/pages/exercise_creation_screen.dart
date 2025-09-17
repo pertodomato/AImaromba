@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package.provider/provider.dart';
+import 'package:provider/provider.dart';
 import 'package:seu_app/core/models/exercise.dart';
 import 'package:seu_app/core/services/hive_service.dart';
 import 'package:uuid/uuid.dart';

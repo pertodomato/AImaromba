@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:seu_app/core/models/meal.dart'; // Você precisará criar o modelo Meal.dart
+import 'package:seu_app/core/models/meal.dart';
 
 class FoodApiService {
   final Dio _dio = Dio();
@@ -10,16 +10,14 @@ class FoodApiService {
       final response = await _dio.get(url, queryParameters: {
         'fields': 'product_name,nutriments'
       });
-      
+
       if (response.statusCode == 200 && response.data['status'] == 1) {
         final product = response.data['product'];
         final nutriments = product['nutriments'];
-        
-        // Criando um objeto Meal a partir da resposta da API
         return Meal(
           id: barcode,
-          name: product['product_name'] ?? 'Nome não encontrado',
-          description: 'Produto escaneado via código de barras.',
+          name: product['product_name'] ?? 'Produto sem nome',
+          description: 'Produto via código de barras $barcode',
           caloriesPer100g: (nutriments['energy-kcal_100g'] as num?)?.toDouble() ?? 0.0,
           proteinPer100g: (nutriments['proteins_100g'] as num?)?.toDouble() ?? 0.0,
           carbsPer100g: (nutriments['carbohydrates_100g'] as num?)?.toDouble() ?? 0.0,
@@ -28,7 +26,7 @@ class FoodApiService {
       }
       return null;
     } catch (e) {
-      print("Erro ao buscar produto: $e");
+      // log
       return null;
     }
   }

@@ -2,179 +2,132 @@ import 'package:flutter/material.dart';
 import 'package:muscle_selector/muscle_selector.dart';
 import 'package:provider/provider.dart';
 import 'package:seu_app/core/models/exercise.dart';
+import 'package:seu_app/core/models/workout_session.dart';
 import 'package:seu_app/core/services/hive_service.dart';
 import 'package:seu_app/features/4_workouts/presentation/pages/exercise_creation_screen.dart';
+import 'package:seu_app/features/4_workouts/presentation/pages/workout_session_creation_screen.dart';
 
 class WorkoutsHubScreen extends StatefulWidget {
   const WorkoutsHubScreen({super.key});
-
   @override
   State<WorkoutsHubScreen> createState() => _WorkoutsHubScreenState();
 }
 
 class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
-  // O mapa de valores dos músculos agora começa vazio e é preenchido dinamicamente.
   Map<Muscle, double> _muscleValues = {};
 
   @override
   void initState() {
     super.initState();
-    // Usamos addPostFrameCallback para garantir que o context esteja disponível.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadMuscleData();
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMuscleData());
   }
 
-  /// Carrega os exercícios do Hive e calcula a ativação de cada músculo.
   void _loadMuscleData() {
-    // 1. Acessa o HiveService via Provider para pegar os exercícios.
-    final exercises =
-        context.read<HiveService>().getBox<Exercise>('exercises').values.toList();
+    final exercises = context.read<HiveService>().getBox<Exercise>('exercises').values.toList();
     final Map<String, double> muscleActivation = {};
-
-    // 2. Calcula um "score" para cada músculo.
-    // Músculos primários valem 1.0, secundários valem 0.5.
-    for (var exercise in exercises) {
-      for (var muscleName in exercise.primaryMuscles) {
-        muscleActivation[muscleName] =
-            (muscleActivation[muscleName] ?? 0) + 1.0;
-      }
-      for (var muscleName in exercise.secondaryMuscles) {
-        muscleActivation[muscleName] =
-            (muscleActivation[muscleName] ?? 0) + 0.5;
-      }
+    for (var ex in exercises) {
+      for (var m in ex.primaryMuscles) { muscleActivation[m] = (muscleActivation[m] ?? 0) + 1.0; }
+      for (var m in ex.secondaryMuscles) { muscleActivation[m] = (muscleActivation[m] ?? 0) + 0.5; }
     }
-
-    // 3. Normaliza os valores (escala de 0 a 1) para a coloração do mapa.
-    // O músculo com o maior score terá o valor 1.0 (cor mais forte).
-    double maxActivation = 1.0;
+    double maxA = 1.0;
     if (muscleActivation.isNotEmpty) {
-      maxActivation = muscleActivation.values.reduce((a, b) => a > b ? a : b);
+      maxA = muscleActivation.values.reduce((a, b) => a > b ? a : b);
     }
-
-    final Map<Muscle, double> calculatedValues = {};
-    for (var entry in muscleActivation.entries) {
-      // Converte o nome do músculo (String) para o enum `Muscle`.
-      final muscle = Muscle.values.byNameOrNull(entry.key);
-      if (muscle != null) {
-        calculatedValues[muscle] = entry.value / maxActivation;
-      }
+    final Map<Muscle, double> values = {};
+    for (var e in muscleActivation.entries) {
+      final muscle = Muscle.values.byNameOrNull(e.key);
+      if (muscle != null) values[muscle] = e.value / maxA;
     }
-
-    // 4. Atualiza o estado do widget para redesenhar o mapa com os novos valores.
-    setState(() {
-      _muscleValues = calculatedValues;
-    });
+    setState(() => _muscleValues = values);
   }
 
-  /// Mostra um painel inferior com os exercícios para o músculo selecionado.
   void _showExercisesForMuscle(Muscle muscle) {
     final exercises = context
         .read<HiveService>()
         .getBox<Exercise>('exercises')
         .values
-        .where((ex) =>
-            ex.primaryMuscles.contains(muscle.name) ||
-            ex.secondaryMuscles.contains(muscle.name))
+        .where((ex) => ex.primaryMuscles.contains(muscle.name) || ex.secondaryMuscles.contains(muscle.name))
         .toList();
 
     showModalBottomSheet(
       context: context,
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Exercícios para ${muscle.name}",
-                  style: Theme.of(context).textTheme.titleLarge),
-              const Divider(),
-              if (exercises.isEmpty)
-                const Center(
-                    child: Text("Nenhum exercício encontrado para este músculo."))
-              else
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: exercises.length,
-                    itemBuilder: (context, index) {
-                      return Card(
-                        child: ListTile(
-                          title: Text(exercises[index].name),
-                        ),
-                      );
-                    },
-                  ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text("Exercícios para ${muscle.name}", style: Theme.of(context).textTheme.titleLarge),
+            const Divider(),
+            if (exercises.isEmpty)
+              const Padding(padding: EdgeInsets.all(16), child: Text("Nenhum exercício encontrado.")),
+            if (exercises.isNotEmpty)
+              SizedBox(
+                height: 300,
+                child: ListView.builder(
+                  itemCount: exercises.length,
+                  itemBuilder: (context, i) => ListTile(title: Text(exercises[i].name)),
                 ),
-            ],
-          ),
-        );
-      },
+              ),
+          ]),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final sessions = context.watch<HiveService>().getBox<WorkoutSession>('workout_sessions').values.toList();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Central de Treinos'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadMuscleData,
-            tooltip: 'Atualizar Dados do Mapa',
-          ),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _loadMuscleData)],
       ),
       body: SingleChildScrollView(
         child: Column(
           children: [
             SizedBox(
-              height: 500,
+              height: 480,
               child: MuscleSelector(
                 muscleData: _muscleValues,
-                onSelect: (muscle, details) {
-                  // Ação ao selecionar o músculo agora é interativa.
-                  _showExercisesForMuscle(muscle);
-                },
+                onSelect: (muscle, details) => _showExercisesForMuscle(muscle),
               ),
             ),
             const Divider(),
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Text(
-                'Progresso Geral',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text('Sessões de Treino', style: Theme.of(context).textTheme.titleLarge),
+                TextButton.icon(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WorkoutSessionCreationScreen())),
+                  icon: const Icon(Icons.add),
+                  label: const Text('Nova Sessão'),
+                )
+              ]),
             ),
-            // TODO: Adicionar gráficos de progresso com fl_chart, lendo o histórico de treinos.
+            if (sessions.isEmpty)
+              const Padding(padding: EdgeInsets.all(8), child: Text('Nenhuma sessão criada.')),
+            if (sessions.isNotEmpty)
+              ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemBuilder: (_, i) => ListTile(
+                  title: Text(sessions[i].name),
+                  subtitle: Text(sessions[i].description),
+                ),
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemCount: sessions.length,
+              ),
+            const SizedBox(height: 16),
             Padding(
               padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Criar Nova Sessão de Treino'),
-                    onPressed: () {
-                      // TODO: Navegar para a tela de criação de sessão
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Criar Novo Exercício'),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const ExerciseCreationScreen()),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            )
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text('Criar Novo Exercício'),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ExerciseCreationScreen())),
+                ),
+              ]),
+            ),
           ],
         ),
       ),
@@ -182,12 +135,9 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
   }
 }
 
-/// Extensão para buscar um valor do enum pelo nome (String) de forma segura.
 extension MuscleByName on Iterable<Muscle> {
   Muscle? byNameOrNull(String name) {
-    for (var value in this) {
-      if (value.name == name) return value;
-    }
+    for (var v in this) { if (v.name == name) return v; }
     return null;
   }
 }
