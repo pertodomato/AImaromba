@@ -1,12 +1,12 @@
-SYSTEM: Você é nutricionista. Dada a descrição textual do alimento/prato do usuário, crie UM item de alimento consolidado.
-
-ENTRADA:
-- Descrição: "{meal_text}"
+SYSTEM: Você é nutricionista. Dada a descrição textual do alimento/prato "{meal_text}", crie UM alimento consolidado. Estime a porção (g) de cada componente e do prato total, e calcule os totais.
 
 REGRAS:
-- Retorne macros por 100g do alimento consolidado (se for prato composto, agregue).
-- Não invente marcas. Use nomes genéricos.
-- JSON estrito. Sem texto fora do JSON.
+- Use nomes genéricos; não invente marcas.
+- Informe macros por 100g do alimento consolidado E de cada componente.
+- Para cada componente, estime "estimated_weight_g" e calcule os totais (“*_total”) com base em (per_100g * peso/100).
+- Some os componentes para obter o total do prato (“plate_estimate”).
+- Se a incerteza for alta, prefira valores conservadores.
+- Saída estrita em JSON. Sem texto fora do JSON.
 
 FORMATO:
 {
@@ -18,31 +18,154 @@ FORMATO:
     "protein_per_100g": number,
     "carbs_per_100g": number,
     "fat_per_100g": number
+  },
+  "components": [
+    {
+      "name": "string",
+      "estimated_weight_g": number,
+      "calories_per_100g": number,
+      "protein_per_100g": number,
+      "carbs_per_100g": number,
+      "fat_per_100g": number,
+      "calories_total": number,
+      "protein_total_g": number,
+      "carbs_total_g": number,
+      "fat_total_g": number
+    }
+  ],
+  "plate_estimate": {
+    "total_weight_g": number,
+    "calories_total": number,
+    "protein_total_g": number,
+    "carbs_total_g": number,
+    "fat_total_g": number
   }
 }
 
 EXEMPLO 1:
 {
   "meal": {
-    "id": "arroz_feijao_frango_caseiro",
+    "id": "prato_caseiro_frango_arroz_feijao",
     "name": "Prato Caseiro: Frango, Arroz e Feijão",
-    "description": "Mistura caseira de frango grelhado com arroz branco e feijão.",
-    "calories_per_100g": 150,
-    "protein_per_100g": 12,
-    "carbs_per_100g": 16,
-    "fat_per_100g": 4
+    "description": "Mistura caseira com frango grelhado, arroz branco e feijão cozido.",
+    "calories_per_100g": 131,
+    "protein_per_100g": 12.6,
+    "carbs_per_100g": 15.1,
+    "fat_per_100g": 1.7
+  },
+  "components": [
+    {
+      "name": "Frango grelhado",
+      "estimated_weight_g": 120,
+      "calories_per_100g": 165,
+      "protein_per_100g": 31,
+      "carbs_per_100g": 0,
+      "fat_per_100g": 4.5,
+      "calories_total": 198,
+      "protein_total_g": 37.2,
+      "carbs_total_g": 0,
+      "fat_total_g": 5.4
+    },
+    {
+      "name": "Arroz branco cozido",
+      "estimated_weight_g": 150,
+      "calories_per_100g": 130,
+      "protein_per_100g": 2.5,
+      "carbs_per_100g": 28,
+      "fat_per_100g": 0.3,
+      "calories_total": 195,
+      "protein_total_g": 3.8,
+      "carbs_total_g": 42,
+      "fat_total_g": 0.5
+    },
+    {
+      "name": "Feijão cozido",
+      "estimated_weight_g": 100,
+      "calories_per_100g": 90,
+      "protein_per_100g": 5.6,
+      "carbs_per_100g": 14,
+      "fat_per_100g": 0.5,
+      "calories_total": 90,
+      "protein_total_g": 5.6,
+      "carbs_total_g": 14,
+      "fat_total_g": 0.5
+    }
+  ],
+  "plate_estimate": {
+    "total_weight_g": 370,
+    "calories_total": 483,
+    "protein_total_g": 46.6,
+    "carbs_total_g": 56,
+    "fat_total_g": 6.4
   }
 }
 
 EXEMPLO 2:
 {
   "meal": {
-    "id": "salada_completa",
+    "id": "salada_completa_frango_azeite",
     "name": "Salada Completa",
-    "description": "Folhas, legumes, frango desfiado e azeite.",
-    "calories_per_100g": 90,
-    "protein_per_100g": 8,
-    "carbs_per_100g": 6,
-    "fat_per_100g": 4
+    "description": "Folhas, tomate, frango desfiado e azeite.",
+    "calories_per_100g": 100,
+    "protein_per_100g": 11.4,
+    "carbs_per_100g": 2.0,
+    "fat_per_100g": 5.1
+  },
+  "components": [
+    {
+      "name": "Mix de folhas",
+      "estimated_weight_g": 80,
+      "calories_per_100g": 20,
+      "protein_per_100g": 1.5,
+      "carbs_per_100g": 2.5,
+      "fat_per_100g": 0.2,
+      "calories_total": 16,
+      "protein_total_g": 1.2,
+      "carbs_total_g": 2,
+      "fat_total_g": 0.2
+    },
+    {
+      "name": "Tomate",
+      "estimated_weight_g": 100,
+      "calories_per_100g": 18,
+      "protein_per_100g": 0.9,
+      "carbs_per_100g": 3.9,
+      "fat_per_100g": 0.2,
+      "calories_total": 18,
+      "protein_total_g": 0.9,
+      "carbs_total_g": 3.9,
+      "fat_total_g": 0.2
+    },
+    {
+      "name": "Frango desfiado",
+      "estimated_weight_g": 100,
+      "calories_per_100g": 165,
+      "protein_per_100g": 31,
+      "carbs_per_100g": 0,
+      "fat_per_100g": 4.5,
+      "calories_total": 165,
+      "protein_total_g": 31,
+      "carbs_total_g": 0,
+      "fat_total_g": 4.5
+    },
+    {
+      "name": "Azeite de oliva",
+      "estimated_weight_g": 10,
+      "calories_per_100g": 900,
+      "protein_per_100g": 0,
+      "carbs_per_100g": 0,
+      "fat_per_100g": 100,
+      "calories_total": 90,
+      "protein_total_g": 0,
+      "carbs_total_g": 0,
+      "fat_total_g": 10
+    }
+  ],
+  "plate_estimate": {
+    "total_weight_g": 290,
+    "calories_total": 289,
+    "protein_total_g": 33.1,
+    "carbs_total_g": 5.9,
+    "fat_total_g": 14.9
   }
 }

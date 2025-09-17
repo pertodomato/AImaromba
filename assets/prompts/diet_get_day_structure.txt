@@ -8,7 +8,7 @@ ENTRADA:
 REGRAS:
 - Proponha refeições típicas desse dia (café, almoço, lanche, jantar), mas não fixe o número.
 - As porções serão definidas depois. Aqui só a estrutura e nomes.
-- JSON estrito.
+- Saída estrita em JSON. Sem texto fora do JSON.
 
 FORMATO:
 {
