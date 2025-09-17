@@ -1,4 +1,6 @@
-// REPLACE WHOLE FILE
+// lib/core/services/llm_service.dart
+// Abstração de LLM com saída JSON e suporte a texto+imagem.
+
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -8,8 +10,7 @@ import 'package:seu_app/core/models/user_profile.dart';
 
 /// Contrato simples e estável
 abstract class LLMProvider {
-  /// Sempre retorna string JSON. Se o provedor não suportar enforced JSON,
-  /// o chamador deve sanitizar com json_safety.
+  /// Deve retornar SEMPRE uma string JSON.
   Future<String> getJson(String prompt, {List<Uint8List>? images});
 }
 
@@ -32,7 +33,7 @@ class GeminiProvider implements LLMProvider {
   @override
   Future<String> getJson(String prompt, {List<Uint8List>? images}) async {
     try {
-      final sys = gg.Content.system('Você responde APENAS JSON. Sem comentários.'); // soft-constraint
+      final sys = gg.Content.system('Você responde APENAS JSON. Sem comentários.');
       if (images != null && images.isNotEmpty) {
         final parts = <gg.Part>[gg.TextPart(prompt)];
         for (final bytes in images) {
@@ -66,7 +67,11 @@ class GPTProvider implements LLMProvider {
       final msgs = <oa.OpenAIChatCompletionChoiceMessageModel>[
         oa.OpenAIChatCompletionChoiceMessageModel(
           role: oa.OpenAIChatMessageRole.system,
-          content: [oa.OpenAIChatCompletionChoiceMessageContentItemModel.text('Você responde APENAS JSON. Sem texto fora do JSON.')],
+          content: [
+            oa.OpenAIChatCompletionChoiceMessageContentItemModel.text(
+              'Você responde APENAS JSON. Sem texto fora do JSON.',
+            ),
+          ],
         ),
         if (images != null && images.isNotEmpty)
           oa.OpenAIChatCompletionChoiceMessageModel(
@@ -74,7 +79,9 @@ class GPTProvider implements LLMProvider {
             content: [
               oa.OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt),
               for (final b in images)
-                oa.OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl('data:image/jpeg;base64,${base64Encode(b)}'),
+                oa.OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl(
+                  'data:image/jpeg;base64,${base64Encode(b)}',
+                ),
             ],
           )
         else
@@ -123,7 +130,17 @@ class LLMService {
     }
   }
 
-  /// Retorna string JSON (talvez suja). Use json_safety no chamador quando precisar de Map.
+  /// Método compatível com o app existente.
+  /// Aceita imagens em base64 (sem prefixo data:), retorna string JSON.
+  Future<String> generateResponse(String prompt, {List<String>? imagesBase64}) {
+    if (_provider == null) {
+      throw Exception('LLM Provider não inicializado. Configure no Perfil.');
+    }
+    final imgs = imagesBase64?.map((s) => base64Decode(s)).toList();
+    return _provider!.getJson(prompt, images: imgs);
+  }
+
+  /// Disponível caso queira chamar direto com bytes
   Future<String> getJson(String prompt, {List<Uint8List>? images}) {
     if (_provider == null) {
       throw Exception('LLM Provider não inicializado. Configure no Perfil.');

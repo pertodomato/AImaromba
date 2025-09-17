@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:seu_app/core/models/meal.dart';
+import 'package:characters/characters.dart';
 
 String _normalize(String s) {
   final lower = s.toLowerCase();
