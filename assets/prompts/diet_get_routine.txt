@@ -6,9 +6,10 @@ ENTRADAS:
 - Dias de dieta existentes no banco: {existing_diet_days}
 
 REGRAS:
-- Use dias existentes quando possível.
-- repetition_schema: "Semanal" | "Quinzenal" | "Mensal".
-- JSON estrito.
+- Use dias existentes quando possível (liste-os em "reuse_days_by_name" se reaproveitar).
+- "repetition_schema": "Semanal" | "Quinzenal" | "Mensal".
+- Saída estrita em JSON. Sem texto fora do JSON.
+- O número de placeholders na sequência pode variar conforme necessidade.
 
 FORMATO:
 {
@@ -16,37 +17,40 @@ FORMATO:
     "name": "string",
     "description": "string",
     "repetition_schema": "Semanal|Quinzenal|Mensal",
-    "day_sequence_placeholders": ["placeholder_semana_normal","placeholder_fim_de_semana", "..."]
+    "day_sequence_placeholders": ["placeholder_1","placeholder_2"]
   },
   "days_to_create": [
     { "placeholder_id": "string", "name": "string", "description": "string" }
-  ]
+  ],
+  "reuse_days_by_name": ["Dia já existente 1"]
 }
 
-EXEMPLO 1 (semana normal + fim de semana com 2 livres):
+EXEMPLO 1 (semana normal + fim de semana):
 {
   "diet_routine": {
-    "name": "Dieta Semanal com Refeeds no Fim de Semana",
-    "description": "Padrão semana + 2 refeições livres no fim de semana.",
+    "name": "Dieta Semanal com 2 livres",
+    "description": "Semana padrão e 2 refeições livres no fim de semana.",
     "repetition_schema": "Semanal",
-    "day_sequence_placeholders": ["semana_normal","semana_normal","semana_normal","semana_normal","semana_normal","fim_de_semana","fim_de_semana"]
+    "day_sequence_placeholders": ["semana","semana","semana","semana","semana","fim_semana","fim_semana"]
   },
   "days_to_create": [
-    { "placeholder_id": "semana_normal", "name": "Dia de Semana", "description": "Alto teor de proteína, carbo moderado." },
-    { "placeholder_id": "fim_de_semana", "name": "Fim de Semana", "description": "Duas refeições livres, controle de porção." }
-  ]
+    { "placeholder_id": "semana", "name": "Dia de Semana", "description": "Proteína alta, carbo moderado." },
+    { "placeholder_id": "fim_semana", "name": "Fim de Semana", "description": "Duas refeições livres, controle de porção." }
+  ],
+  "reuse_days_by_name": []
 }
 
-EXEMPLO 2 (quinzenal alternando déficit e manutenção):
+EXEMPLO 2 (quinzenal déficit/manutenção):
 {
   "diet_routine": {
-    "name": "Ciclo Déficit/Manutenção 14d",
-    "description": "10 dias déficit, 4 dias manutenção.",
+    "name": "Ciclo 10/4 Déficit- manutenção",
+    "description": "10 dias em déficit, 4 de manutenção.",
     "repetition_schema": "Quinzenal",
     "day_sequence_placeholders": ["deficit","deficit","deficit","deficit","deficit","deficit","deficit","deficit","deficit","deficit","manutencao","manutencao","manutencao","manutencao"]
   },
   "days_to_create": [
-    { "placeholder_id": "deficit", "name": "Déficit", "description": "Calorias abaixo de TDEE." },
-    { "placeholder_id": "manutencao", "name": "Manutenção", "description": "Calorias de manutenção, proteínas constantes." }
-  ]
+    { "placeholder_id": "deficit", "name": "Déficit", "description": "Abaixo do TDEE." },
+    { "placeholder_id": "manutencao", "name": "Manutenção", "description": "Manutenção calórica, proteína constante." }
+  ],
+  "reuse_days_by_name": []
 }

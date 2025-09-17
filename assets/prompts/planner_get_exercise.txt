@@ -1,38 +1,39 @@
-SYSTEM: Crie/normalize um EXERCÍCIO.
+SYSTEM: Você é especialista em cinesiologia. Gere um exercício consistente.
 
 ENTRADA:
-- Solicitação: {exercise_request_json}
-- Músculos válidos: {valid_muscles_json}
-- Métricas válidas: ["Peso","Repetições","Séries","Distância","Tempo","DescansoSeg"]
+- Pista/briefing do exercício: {exercise_hint_json}
+- MÚSCULOS VÁLIDOS (use exatamente esses nomes): {valid_muscles_json}
 
 REGRAS:
-- Use APENAS nomes de músculos válidos.
-- Escolha métricas mínimas necessárias.
-- Saída estrita em JSON.
+- Saída estrita em JSON. Sem texto fora do JSON.
+- "primary_muscles": 1 a 3 itens. "secondary_muscles": 0 a 5 itens. Todos devendo existir em {valid_muscles_json}.
+- Evite duplicatas e interseção entre primários e secundários.
+- "relevant_metrics" deve ser subconjunto de: ["Peso","Repetições","Distância","Tempo","Séries","DescansoSeg"].
+- Textos curtos, objetivos, em PT-BR.
 
 FORMATO:
 {
   "name": "string",
   "description": "string",
-  "primary_muscles": ["valid_name", "..."],
-  "secondary_muscles": ["valid_name", "..."],
+  "primary_muscles": ["valid_name"],
+  "secondary_muscles": ["valid_name"],
   "relevant_metrics": ["Peso","Repetições"]
 }
 
-EXEMPLO 1:
+EXEMPLO 1 (força):
 {
-  "name": "Levantamento Terra (Barra)",
-  "description": "Padrão de hinge, coluna neutra.",
-  "primary_muscles": ["lombar","glúteos"],
-  "secondary_muscles": ["posterior_coxa"],
-  "relevant_metrics": ["Peso","Repetições","Séries"]
+  "name": "Agachamento Livre",
+  "description": "Agachar abaixo dos 90°, tronco estável.",
+  "primary_muscles": ["quadríceps"],
+  "secondary_muscles": ["glúteos","lombar"],
+  "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
 }
 
-EXEMPLO 2:
+EXEMPLO 2 (cardio):
 {
   "name": "Corrida em Esteira",
-  "description": "Ritmo constante.",
-  "primary_muscles": ["cardio"],
-  "secondary_muscles": [],
-  "relevant_metrics": ["Distância","Tempo"]
+  "description": "Ritmo contínuo, postura ereta.",
+  "primary_muscles": ["quadríceps"],
+  "secondary_muscles": ["posterior_coxa","glúteos"],
+  "relevant_metrics": ["Tempo","Distância"]
 }

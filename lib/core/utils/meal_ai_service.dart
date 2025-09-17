@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:seu_app/core/models/meal.dart';
 import 'package:seu_app/core/services/llm_service.dart';

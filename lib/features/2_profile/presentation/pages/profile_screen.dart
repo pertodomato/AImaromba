@@ -23,6 +23,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _gptApiKeyController;
   String _selectedLlmProvider = 'gemini';
 
+  // metas de nutrição
+  late TextEditingController _dailyKcalController;
+  late TextEditingController _dailyProteinController;
+
   bool _checking = false;
   bool? _connected;
 
@@ -31,28 +35,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.initState();
     _userProfile = context.read<HiveService>().getUserProfile();
     _nameController = TextEditingController(text: _userProfile.name);
-    _heightController = TextEditingController(text: _userProfile.height?.toString());
-    _weightController = TextEditingController(text: _userProfile.weight?.toString());
-    _birthDateController = TextEditingController(text: _userProfile.birthDate == null ? '' : _userProfile.birthDate!.toIso8601String().split('T').first);
-    _bodyFatController = TextEditingController(text: _userProfile.bodyFatPercentage?.toString());
+    _heightController = TextEditingController(text: _userProfile.height?.toString() ?? '');
+    _weightController = TextEditingController(text: _userProfile.weight?.toString() ?? '');
+    _birthDateController =
+        TextEditingController(text: _userProfile.birthDate == null ? '' : _userProfile.birthDate!.toIso8601String().split('T').first);
+    _bodyFatController = TextEditingController(text: _userProfile.bodyFatPercentage?.toString() ?? '');
     _selectedGender = _userProfile.gender ?? 'Other';
     _geminiApiKeyController = TextEditingController(text: _userProfile.geminiApiKey);
     _gptApiKeyController = TextEditingController(text: _userProfile.gptApiKey);
     _selectedLlmProvider = _userProfile.selectedLlm;
+
+    _dailyKcalController = TextEditingController(text: _userProfile.dailyKcalGoal?.toString() ?? '');
+    _dailyProteinController = TextEditingController(text: _userProfile.dailyProteinGoal?.toString() ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _heightController.dispose();
+    _weightController.dispose();
+    _birthDateController.dispose();
+    _bodyFatController.dispose();
+    _geminiApiKeyController.dispose();
+    _gptApiKeyController.dispose();
+    _dailyKcalController.dispose();
+    _dailyProteinController.dispose();
+    super.dispose();
   }
 
   void _saveProfile() {
     if (_formKey.currentState!.validate()) {
       final updatedProfile = UserProfile(
-        name: _nameController.text,
-        height: double.tryParse(_heightController.text),
-        weight: double.tryParse(_weightController.text),
-        birthDate: DateTime.tryParse(_birthDateController.text),
+        name: _nameController.text.trim(),
+        height: double.tryParse(_heightController.text.trim()),
+        weight: double.tryParse(_weightController.text.trim()),
+        birthDate: DateTime.tryParse(_birthDateController.text.trim()),
         gender: _selectedGender,
-        bodyFatPercentage: double.tryParse(_bodyFatController.text),
-        geminiApiKey: _geminiApiKeyController.text,
-        gptApiKey: _gptApiKeyController.text,
+        bodyFatPercentage: double.tryParse(_bodyFatController.text.trim()),
+        geminiApiKey: _geminiApiKeyController.text.trim(),
+        gptApiKey: _gptApiKeyController.text.trim(),
         selectedLlm: _selectedLlmProvider,
+        dailyKcalGoal: double.tryParse(_dailyKcalController.text.trim()),
+        dailyProteinGoal: double.tryParse(_dailyProteinController.text.trim()),
       );
       final hiveService = context.read<HiveService>();
       hiveService.saveUserProfile(updatedProfile);
@@ -110,7 +134,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onChanged: (value) => setState(() => _selectedGender = value!),
             ),
             TextFormField(controller: _bodyFatController, decoration: const InputDecoration(labelText: '% Gordura Corporal'), keyboardType: TextInputType.number),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+            Text('Metas de Nutrição', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _dailyKcalController,
+              decoration: const InputDecoration(labelText: 'Meta diária de calorias (kcal)'),
+              keyboardType: TextInputType.number,
+            ),
+            TextFormField(
+              controller: _dailyProteinController,
+              decoration: const InputDecoration(labelText: 'Meta diária de proteína (g)'),
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 24),
             Text('Configurações da IA', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(

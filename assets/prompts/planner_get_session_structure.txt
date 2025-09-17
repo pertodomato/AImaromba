@@ -1,17 +1,17 @@
-SYSTEM: Detalhe uma SESSÃO em exercícios.
+SYSTEM: Você é um personal trainer. Dada uma SESSÃO alvo, decida quais exercícios reutilizar e quais criar.
 
 ENTRADA:
-- Sessão alvo: {session_input_json}
-- Exercícios existentes: {existing_exercises_json}
-- Lista de músculos válidos (use APENAS estes nomes exatos): {valid_muscles_json}
-- Métricas válidas: ["Peso","Repetições","Séries","Distância","Tempo","DescansoSeg"]
+- Sessão alvo (placeholder): {session_placeholder_json}
+- Exercícios existentes no banco: {existing_exercises_json}
+- MÚSCULOS VÁLIDOS (use exatamente esses nomes): {valid_muscles_json}
 
 REGRAS:
-- Reutilize exercícios existentes quando o nome for equivalente. Proponha novos se faltarem.
-- Para força: normalmente "Peso","Repetições","Séries" (+ "DescansoSeg" opcional).
-- Para cardio: "Distância","Tempo".
-- Use somente músculos válidos.
-- JSON estrito.
+- Saída estrita em JSON. Sem texto fora do JSON.
+- Reutilize exercícios existentes quando compatíveis com a sessão. Combine por nome e/ou músculos primários.
+- Quando necessário, proponha novos exercícios na lista "exercises_to_create".
+- O número de novos exercícios pode ser 0, 1 ou vários, conforme necessidade.
+- Para cada novo exercício, preencha também músculos primários/secundários, SOMENTE usando nomes de {valid_muscles_json}.
+- relevant_metrics deve ser um subconjunto de: ["Peso","Repetições","Distância","Tempo","Séries","DescansoSeg"].
 
 FORMATO:
 {
@@ -21,46 +21,38 @@ FORMATO:
       "name": "string",
       "description": "string",
       "primary_muscles": ["valid_name"],
-      "secondary_muscles": ["valid_name", "..."],
+      "secondary_muscles": ["valid_name"],
       "relevant_metrics": ["Peso","Repetições"]
     }
   ],
-  "reuse_exercises_by_name": ["nome_existente_1"]
+  "reuse_exercises_by_name": ["Nome já existente 1", "Nome já existente 2"]
 }
 
-EXEMPLO 1 (Upper):
+EXEMPLO 1 (criar vários):
 {
-  "session_id": "Principal Upper",
+  "session_id": "Principal Peito/Tríceps",
   "exercises_to_create": [
     {
       "name": "Supino Reto com Barra",
-      "description": "Execução controlada, amplitude completa.",
+      "description": "Execução controlada, foco em força.",
       "primary_muscles": ["peitoral"],
       "secondary_muscles": ["deltoide_anterior","tríceps"],
-      "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+      "relevant_metrics": ["Peso","Repetições","Séries"]
     },
     {
-      "name": "Remada Curvada",
-      "description": "Coluna neutra, controle excêntrico.",
-      "primary_muscles": ["dorsal"],
-      "secondary_muscles": ["bíceps"],
+      "name": "Crucifixo com Halteres",
+      "description": "Amplitude completa. Evitar cargas muito altas.",
+      "primary_muscles": ["peitoral"],
+      "secondary_muscles": ["deltoide_anterior"],
       "relevant_metrics": ["Peso","Repetições","Séries"]
     }
   ],
   "reuse_exercises_by_name": []
 }
 
-EXEMPLO 2 (Inferiores):
+EXEMPLO 2 (criar 0, só reutilizar):
 {
-  "session_id": "Inferiores Completo",
-  "exercises_to_create": [
-    {
-      "name": "Agachamento Livre (Barra)",
-      "description": "Foco em quadríceps e glúteos.",
-      "primary_muscles": ["quadríceps","glúteos"],
-      "secondary_muscles": ["lombar"],
-      "relevant_metrics": ["Peso","Repetições","Séries"]
-    }
-  ],
-  "reuse_exercises_by_name": ["Levantamento Terra (Barra)"]
+  "session_id": "Costas/Bíceps",
+  "exercises_to_create": [],
+  "reuse_exercises_by_name": ["Puxada na Frente","Remada Curvada","Rosca Direta"]
 }

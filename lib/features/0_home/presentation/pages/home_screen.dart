@@ -8,7 +8,7 @@ import 'package:seu_app/core/services/hive_service.dart';
 import 'package:seu_app/core/services/food_api_service.dart';
 import 'package:seu_app/core/services/food_repository.dart';
 import 'package:seu_app/core/services/llm_service.dart';
-import 'package:seu_app/core/services/meal_ai_service.dart';
+import 'package:seu_app/core/utils/meal_ai_service.dart'; // <-- caminho corrigido
 
 import 'package:seu_app/features/common/scan_barcode_screen.dart';
 import 'package:seu_app/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
@@ -57,10 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
     final now = DateTime.now();
     final todays = entries
-        .where((e) =>
-            e.dateTime.year == now.year &&
-            e.dateTime.month == now.month &&
-            e.dateTime.day == now.day)
+        .where((e) => e.dateTime.year == now.year && e.dateTime.month == now.month && e.dateTime.day == now.day)
         .toList();
     _consumedKcal = todays.fold(0.0, (s, e) => s + e.calories);
     if (todays.isNotEmpty) {
@@ -70,9 +67,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _nextMeal = null;
     }
 
-    // Meta diária vinda do perfil
+    // Meta diária vinda do perfil (campo correto)
     final profile = hive.getUserProfile();
-    _dailyGoalKcal = (profile.dailyCalorieGoal ?? 2000).toDouble();
+    _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
 
     setState(() {});
   }
@@ -81,9 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_nextSession == null) return;
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => WorkoutInProgressScreen(session: _nextSession!),
-      ),
+      MaterialPageRoute(builder: (_) => WorkoutInProgressScreen(session: _nextSession!)),
     );
   }
 
@@ -152,7 +147,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (meal == null) {
       final api = FoodApiService();
-      final fromApi = await api.fetchFoodByBarcode(barcode, retries: 1);
+      final fromApi = await api.fetchFoodByBarcode(barcode); // <-- assinatura correta
       if (fromApi != null) {
         await mealsBox.add(fromApi);
         meal = fromApi;
@@ -311,16 +306,16 @@ class _HomeScreenState extends State<HomeScreen> {
               }
               final hive = context.read<HiveService>();
               await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
-                id: const Uuid().v4(),
-                dateTime: DateTime.now(),
-                label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
-                meal: meal,
-                grams: grams,
-              ));
+                    id: const Uuid().v4(),
+                    dateTime: DateTime.now(),
+                    label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
+                    meal: meal,
+                    grams: grams,
+                  ));
               Navigator.pop(ctx);
               _loadDashboard();
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição registrada!')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição registrado!')));
             },
             child: const Text('Salvar'),
           ),

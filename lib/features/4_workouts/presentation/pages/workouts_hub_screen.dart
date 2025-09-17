@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:muscle_selector/muscle_selector.dart';
 import 'package:provider/provider.dart';
+
 import 'package:seu_app/core/models/exercise.dart';
 import 'package:seu_app/core/models/workout_session.dart';
 import 'package:seu_app/core/models/workout_set_entry.dart';
 import 'package:seu_app/core/services/benchmarks_service.dart';
 import 'package:seu_app/core/services/hive_service.dart';
+import 'package:seu_app/core/utils/muscle_validation.dart';
+
 import 'package:seu_app/features/4_workouts/presentation/pages/exercise_creation_screen.dart';
 import 'package:seu_app/features/4_workouts/presentation/pages/workout_session_creation_screen.dart';
 import 'package:seu_app/features/4_workouts/presentation/widgets/progress_charts.dart';
@@ -38,18 +41,20 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
     // Calcula melhor desempenho por categoria de benchmark
     final byBench = bench.computeUserBenchmarks(profile, allExercises, sets);
 
-    // Mapeia benchmark->músculos e aplica percentil 0..1
+    // Mapeia benchmark->músculos válidos e aplica percentil 0..1
     final muscleScore = <String, double>{};
-    void acc(List<String> muscles, double pct) {
-      for (final m in muscles) {
+
+    void accValid(List<String> muscles, double pct) {
+      if (pct <= 0) return;
+      for (final m in muscles.where(isValidMuscleName)) {
         muscleScore[m] = (muscleScore[m] ?? 0) + pct;
       }
     }
 
-    acc(['peitoral', 'deltoide_anterior', 'tríceps'], byBench['supino_masculino']?.percentile ?? 0);
-    acc(['quadríceps', 'glúteos', 'lombar'], byBench['agachamento_masculino']?.percentile ?? 0);
-    acc(['lombar', 'glúteos', 'posterior_coxa'], byBench['terra_masculino']?.percentile ?? 0);
-    acc(['dorsal', 'bíceps'], byBench['barra_fixa_masculino']?.percentile ?? 0);
+    accValid(['peitoral', 'deltoide_anterior', 'tríceps'], byBench['supino_masculino']?.percentile ?? 0);
+    accValid(['quadríceps', 'glúteos', 'lombar'], byBench['agachamento_masculino']?.percentile ?? 0);
+    accValid(['lombar', 'glúteos', 'posterior_coxa'], byBench['terra_masculino']?.percentile ?? 0);
+    accValid(['dorsal', 'bíceps'], byBench['barra_fixa_masculino']?.percentile ?? 0);
 
     // Normaliza 0..1
     double maxA = 1.0;
@@ -78,9 +83,9 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
           children: [
             SizedBox(height: 480, child: MuscleSelector(muscleData: _muscleValues, onSelect: (m, _) {})),
             const Divider(),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: const ProgressCharts(),
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: ProgressCharts(),
             ),
             const Divider(),
             Padding(

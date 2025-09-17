@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:muscle_selector/muscle_selector.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
@@ -9,6 +8,7 @@ import 'package:seu_app/core/models/models.dart';
 import 'package:seu_app/core/services/llm_service.dart';
 import 'package:seu_app/core/services/hive_service.dart';
 import 'package:seu_app/core/utils/json_safety.dart';
+import 'package:seu_app/core/utils/muscle_validation.dart';
 
 enum PlanStep { goal, questions, generating }
 
@@ -42,7 +42,8 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
   }
 
   Future<void> _fetchInitialQuestions() async {
-    if (_goalController.text.trim().isEmpty) {
+    final goal = _goalController.text.trim();
+    if (goal.isEmpty) {
       _showError('Descreva seu objetivo.');
       return;
     }
@@ -65,7 +66,7 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
     final template = await rootBundle.loadString('assets/prompts/planner_get_questions.txt');
     final prompt = template
         .replaceAll('{user_profile}', jsonEncode(_profileToJson(user)))
-        .replaceAll('{user_goal}', _goalController.text.trim());
+        .replaceAll('{user_goal}', goal);
 
     try {
       final response = await llm.generateResponse(prompt);
@@ -80,10 +81,10 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
         if (id.isEmpty) continue;
         _answers[id] = TextEditingController();
       }
-      setState(() => _currentStep = PlanStep.questions);
+      if (mounted) setState(() => _currentStep = PlanStep.questions);
     } catch (e) {
       _showError('Erro ao gerar perguntas: $e');
-      setState(() => _currentStep = PlanStep.goal);
+      if (mounted) setState(() => _currentStep = PlanStep.goal);
     }
   }
 
@@ -117,25 +118,50 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
         setState(() => _loadingMessage = "Detalhando dia '${dayData['name']}'...");
         final sessionsStructure = await _generateDayStructure(llm, dayData);
         final sessionsToCreateData = List<Map<String, dynamic>>.from(sessionsStructure['sessions_to_create'] ?? []);
+        final reuseSessionNames = List<String>.from(sessionsStructure['reuse_sessions_by_name'] ?? const <String>[]);
 
-        final List<WorkoutSession> createdSessions = [];
+        // Reaproveitar sessões existentes por nome
+        final existingSessions = sessionBox.values.toList();
+        final List<WorkoutSession> createdSessions = [
+          for (final name in reuseSessionNames)
+            ...existingSessions.where((s) => s.name.toLowerCase() == name.toLowerCase())
+        ];
 
         for (final sessionData in sessionsToCreateData) {
           setState(() => _loadingMessage = "Montando sessão '${sessionData['name']}'...");
           final exStructure = await _generateSessionStructure(llm, sessionData);
           final exToCreateData = List<Map<String, dynamic>>.from(exStructure['exercises_to_create'] ?? []);
-          final List<Exercise> createdExercises = [];
+          final reuseExNames = List<String>.from(exStructure['reuse_exercises_by_name'] ?? const <String>[]);
+
+          final existingExercises = exBox.values.toList();
+          final List<Exercise> createdExercises = [
+            for (final name in reuseExNames)
+              ...existingExercises.where((e) => e.name.toLowerCase() == name.toLowerCase())
+          ];
 
           for (final exerciseData in exToCreateData) {
             setState(() => _loadingMessage = "Criando exercício '${exerciseData['name']}'...");
             final exJson = await _generateExercise(llm, exerciseData);
+
+            // Sanitização: músculos do muscle_selector + métricas permitidas
+            const allowedMetrics = <String>{
+              'Peso', 'Repetições', 'Distância', 'Tempo', 'Séries', 'DescansoSeg'
+            };
+
+            final rawPrim = List<String>.from(exJson['primary_muscles'] ?? const <String>[]);
+            final rawSec  = List<String>.from(exJson['secondary_muscles'] ?? const <String>[]);
+            final clamped = clampPrimarySecondary(primary: rawPrim, secondary: rawSec);
+
+            final rawMetrics = List<String>.from(exJson['relevant_metrics'] ?? const <String>[]);
+            final metrics    = rawMetrics.where(allowedMetrics.contains).toSet().toList();
+
             final newEx = Exercise(
               id: _uuid.v4(),
               name: (exJson['name'] ?? '').toString(),
               description: (exJson['description'] ?? '').toString(),
-              primaryMuscles: List<String>.from(exJson['primary_muscles'] ?? const <String>[]),
-              secondaryMuscles: List<String>.from(exJson['secondary_muscles'] ?? const <String>[]),
-              relevantMetrics: List<String>.from(exJson['relevant_metrics'] ?? const <String>[]),
+              primaryMuscles: clamped['primary']!,
+              secondaryMuscles: clamped['secondary']!,
+              relevantMetrics: metrics.isEmpty ? const ['Repetições', 'Séries'] : metrics,
             );
             await exBox.add(newEx);
             createdExercises.add(newEx);
@@ -181,116 +207,95 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Plano de treino e dieta criado!')));
     } catch (e) {
       _showError('Erro durante criação do plano: $e');
-      setState(() => _currentStep = PlanStep.questions);
+      if (mounted) setState(() => _currentStep = PlanStep.questions);
     }
   }
 
-  // ====== LLM prompts para TREINO ======
+  // ====== LLM: TREINO ======
 
   Future<Map<String, dynamic>> _generateRoutineStructure(
     LLMService llm,
     UserProfile profile,
     Map<String, String> answers,
   ) async {
+    final hive = context.read<HiveService>();
+    final existingDays = hive.getBox<WorkoutDay>('workout_days')
+        .values
+        .map((d) => {'id': d.id, 'name': d.name})
+        .toList();
+
     final template = await rootBundle.loadString('assets/prompts/planner_get_routine.txt');
     final prompt = template
         .replaceAll('{user_profile}', jsonEncode(_profileToJson(profile)))
         .replaceAll('{user_answers}', jsonEncode(answers))
-        .replaceAll('{existing_workout_days}', '[]');
+        .replaceAll('{existing_workout_days}', jsonEncode(existingDays));
     final response = await llm.generateResponse(prompt);
     return safeDecodeMap(response);
   }
 
   Future<Map<String, dynamic>> _generateDayStructure(LLMService llm, Map<String, dynamic> dayData) async {
-    final prompt = '''
-SYSTEM: Você é um personal trainer. Detalhe um dia de treino com sessões.
-Dia: ${jsonEncode(dayData)}
-Sessões existentes: []
+    final hive = context.read<HiveService>();
+    final existingSessions = hive.getBox<WorkoutSession>('workout_sessions')
+        .values
+        .map((s) => {'id': s.id, 'name': s.name, 'description': s.description})
+        .toList();
 
-Responda JSON estrito:
-{
-  "day_id": "${dayData['placeholder_id'] ?? dayData['name']}",
-  "sessions_to_create": [
-    {"name": "Aquecimento Articular", "description": "5-10 min"},
-    {"name": "Principal - ${dayData['name']}", "description": "Exercícios compostos e isolados do dia."}
-  ]
-}
-''';
+    final template = await rootBundle.loadString('assets/prompts/planner_get_day_structure.txt');
+    final prompt = template
+        .replaceAll('{day_placeholder_json}', jsonEncode(dayData))
+        .replaceAll('{existing_sessions_json}', jsonEncode(existingSessions));
     final response = await llm.generateResponse(prompt);
     return safeDecodeMap(response);
   }
 
   Future<Map<String, dynamic>> _generateSessionStructure(LLMService llm, Map<String, dynamic> sessionData) async {
-    final prompt = '''
-SYSTEM: Você é um personal trainer. Detalhe uma sessão com exercícios.
-Sessão: ${jsonEncode(sessionData)}
-Exercícios existentes: []
+    final hive = context.read<HiveService>();
+    final existingExercises = hive.getBox<Exercise>('exercises')
+        .values
+        .map((e) => {
+              'id': e.id,
+              'name': e.name,
+              'primary_muscles': e.primaryMuscles,
+              'secondary_muscles': e.secondaryMuscles
+            })
+        .toList();
 
-Responda JSON estrito:
-{
-  "session_id": "${sessionData['name']}",
-  "exercises_to_create": [
-    {"name": "Supino Reto com Barra", "description": "Execução padrão com segurança."},
-    {"name": "Desenvolvimento Militar com Halteres", "description": "Execução controlada."},
-    {"name": "Tríceps na Polia Alta", "description": "Extensão completa do cotovelo."}
-  ]
-}
-''';
+    final template = await rootBundle.loadString('assets/prompts/planner_get_session_structure.txt');
+    final prompt = template
+        .replaceAll('{session_placeholder_json}', jsonEncode(sessionData))
+        .replaceAll('{existing_exercises_json}', jsonEncode(existingExercises))
+        .replaceAll('{valid_muscles_json}', jsonEncode(kAllowedMuscles.toList()));
     final response = await llm.generateResponse(prompt);
     return safeDecodeMap(response);
   }
 
   Future<Map<String, dynamic>> _generateExercise(LLMService llm, Map<String, dynamic> exerciseData) async {
-    final validMuscles = jsonEncode(Muscle.values.map((m) => m.name).toList());
-    final prompt = '''
-SYSTEM: Você é especialista em cinesiologia. Gere os campos do exercício.
-Entrada: ${jsonEncode(exerciseData)}
-Músculos válidos (enum do app): $validMuscles
-
-Responda JSON estrito:
-{
-  "name": "${exerciseData['name']}",
-  "description": "${(exerciseData['description'] ?? 'N/A').toString()}",
-  "primary_muscles": ["peitoral"],
-  "secondary_muscles": ["deltoide_anterior","tríceps"],
-  "relevant_metrics": ["Peso","Repetições","Séries"]
-}
-''';
+    final template = await rootBundle.loadString('assets/prompts/planner_get_exercise.txt');
+    final prompt = template
+        .replaceAll('{exercise_hint_json}', jsonEncode(exerciseData))
+        .replaceAll('{valid_muscles_json}', jsonEncode(kAllowedMuscles.toList()));
     final response = await llm.generateResponse(prompt);
     return safeDecodeMap(response);
   }
 
-  // ====== LLM prompts para DIETA ======
+  // ====== LLM: DIETA ======
 
   Future<Map<String, dynamic>> _generateDietStructure(
     LLMService llm,
     UserProfile profile,
     Map<String, String> answers,
   ) async {
-    final prompt = '''
-SYSTEM: Você é nutricionista. Crie uma rotina de dieta com placeholders de dias e lista de dias a criar.
-Responda JSON estrito:
-{
-  "routine": {
-    "name": "string",
-    "description": "string",
-    "repetition_schema": "Semanal|Quinzenal|Mensal",
-    "day_sequence_placeholders": ["dia_normal","dia_fim_semana"]
-  },
-  "days_to_create": [
-    {"placeholder_id":"dia_normal","name":"Dia Normal","description":"Dia padrão de semana","meals":[
-      {"label":"Café da manhã","suggestions":["ovos","aveia"]},
-      {"label":"Almoço","suggestions":["frango","arroz","feijão"]},
-      {"label":"Jantar","suggestions":["carne","legumes"]}
-    ]},
-    {"placeholder_id":"dia_fim_semana","name":"Fim de Semana","description":"Dia com flexibilidade","meals":[
-      {"label":"Livre 1","suggestions":["refeição livre controlada"]}
-    ]}
-  ]
-}
-Perfil: ${jsonEncode(_profileToJson(profile))}
-Respostas: ${jsonEncode(answers)}
-''';
+    final hive = context.read<HiveService>();
+    final existingDietDays = hive.getBox<DietDay>('diet_days')
+        .values
+        .map((d) => {'id': d.id, 'name': d.name})
+        .toList();
+
+    final template = await rootBundle.loadString('assets/prompts/diet_get_routine.txt');
+    final prompt = template
+        .replaceAll('{user_profile}', jsonEncode(_profileToJson(profile)))
+        .replaceAll('{user_answers}', jsonEncode(answers))
+        .replaceAll('{existing_diet_days}', jsonEncode(existingDietDays));
     final resp = await llm.generateResponse(prompt);
     return safeDecodeMap(resp);
   }
@@ -303,7 +308,7 @@ Respostas: ${jsonEncode(answers)}
     final answers = _answers.map((k, v) => MapEntry(k, v.text.trim()));
     final dietStruct = await _generateDietStructure(llm, user, answers);
 
-    final routineData = dietStruct['routine'];
+    final routineData = dietStruct['diet_routine'] ?? dietStruct['routine'];
     final daysToCreate = List<Map<String, dynamic>>.from(dietStruct['days_to_create'] ?? []);
 
     final createdDays = <DietDay>[];
