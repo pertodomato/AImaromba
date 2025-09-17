@@ -1,5 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:seu_app/core/models/models.dart';
+import 'package:seu_app/core/models/workout_set_entry.dart';
+import 'package:seu_app/core/models/workout_session_log.dart';
 
 class HiveService {
   Future<void> init() async {
@@ -16,6 +18,8 @@ class HiveService {
     Hive.registerAdapter(WeightEntryAdapter());
     Hive.registerAdapter(DietDayAdapter());
     Hive.registerAdapter(DietRoutineAdapter());
+    Hive.registerAdapter(WorkoutSetEntryAdapter());
+    Hive.registerAdapter(WorkoutSessionLogAdapter());
 
     // Boxes
     await Hive.openBox<UserProfile>('user_profile');
@@ -28,6 +32,8 @@ class HiveService {
     await Hive.openBox<WeightEntry>('weight_entries');
     await Hive.openBox<DietDay>('diet_days');
     await Hive.openBox<DietRoutine>('diet_routines');
+    await Hive.openBox<WorkoutSetEntry>('workout_set_entries');
+    await Hive.openBox<WorkoutSessionLog>('workout_session_logs');
   }
 
   Box<T> getBox<T>(String boxName) => Hive.box<T>(boxName);

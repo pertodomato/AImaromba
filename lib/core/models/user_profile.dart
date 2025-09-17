@@ -8,28 +8,34 @@ class UserProfile extends HiveObject {
   String name;
 
   @HiveField(1)
-  double? height; // em cm
+  double? height; // cm
 
   @HiveField(2)
-  double? weight; // em kg
+  double? weight; // kg
 
   @HiveField(3)
   DateTime? birthDate;
 
   @HiveField(4)
-  String? gender; // "Male", "Female", "Other"
+  String? gender;
 
   @HiveField(5)
   double? bodyFatPercentage;
-  
+
   @HiveField(6)
   String geminiApiKey;
-  
+
   @HiveField(7)
   String gptApiKey;
 
   @HiveField(8)
   String selectedLlm; // "gemini", "gpt"
+
+  @HiveField(9)
+  double? dailyKcalGoal;
+
+  @HiveField(10)
+  double? dailyProteinGoal;
 
   UserProfile({
     this.name = '',
@@ -41,5 +47,7 @@ class UserProfile extends HiveObject {
     this.geminiApiKey = '',
     this.gptApiKey = '',
     this.selectedLlm = 'gemini',
+    this.dailyKcalGoal,
+    this.dailyProteinGoal,
   });
 }

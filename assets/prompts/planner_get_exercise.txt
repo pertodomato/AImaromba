@@ -1,0 +1,38 @@
+SYSTEM: Crie/normalize um EXERCÍCIO.
+
+ENTRADA:
+- Solicitação: {exercise_request_json}
+- Músculos válidos: {valid_muscles_json}
+- Métricas válidas: ["Peso","Repetições","Séries","Distância","Tempo","DescansoSeg"]
+
+REGRAS:
+- Use APENAS nomes de músculos válidos.
+- Escolha métricas mínimas necessárias.
+- Saída estrita em JSON.
+
+FORMATO:
+{
+  "name": "string",
+  "description": "string",
+  "primary_muscles": ["valid_name", "..."],
+  "secondary_muscles": ["valid_name", "..."],
+  "relevant_metrics": ["Peso","Repetições"]
+}
+
+EXEMPLO 1:
+{
+  "name": "Levantamento Terra (Barra)",
+  "description": "Padrão de hinge, coluna neutra.",
+  "primary_muscles": ["lombar","glúteos"],
+  "secondary_muscles": ["posterior_coxa"],
+  "relevant_metrics": ["Peso","Repetições","Séries"]
+}
+
+EXEMPLO 2:
+{
+  "name": "Corrida em Esteira",
+  "description": "Ritmo constante.",
+  "primary_muscles": ["cardio"],
+  "secondary_muscles": [],
+  "relevant_metrics": ["Distância","Tempo"]
+}

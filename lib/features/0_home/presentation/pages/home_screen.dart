@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:seu_app/core/services/hive_service.dart';
+
 import 'package:seu_app/core/models/models.dart';
+import 'package:seu_app/core/services/hive_service.dart';
+import 'package:seu_app/core/services/food_api_service.dart';
+import 'package:seu_app/core/services/food_repository.dart';
+import 'package:seu_app/core/services/llm_service.dart';
+import 'package:seu_app/core/services/meal_ai_service.dart';
+
 import 'package:seu_app/features/common/scan_barcode_screen.dart';
+import 'package:seu_app/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
+import 'package:seu_app/features/7_settings/presentation/pages/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   WorkoutSession? _nextSession;
   String _nextSessionDayName = '';
   double _consumedKcal = 0;
-  double _dailyGoalKcal = 2500; // pode vir do perfil/config
+  double _dailyGoalKcal = 2000;
 
   @override
   void initState() {
@@ -27,7 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _loadDashboard() {
     final hive = context.read<HiveService>();
-    // Próximo treino: pega primeira rotina e calcula dia corrente
+
+    // Próximo treino pela primeira rotina
     final routines = hive.getBox<WorkoutRoutine>('workout_routines').values.toList();
     if (routines.isNotEmpty) {
       final r = routines.first;
@@ -35,7 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (days.isNotEmpty) {
         final today = DateTime.now();
         final diff = today.difference(r.startDate).inDays;
-        final idx = diff >= 0 ? diff % days.length : 0;
+        final idx = diff >= 0 && days.isNotEmpty ? diff % days.length : 0;
         final day = days[idx];
         _nextSessionDayName = day.name;
         final sessions = day.sessions.toList();
@@ -43,31 +52,39 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    // Próxima refeição: procura MealEntry de hoje com horário após agora
+    // Próxima refeição de hoje e kcal do dia
     final entries = hive.getBox<MealEntry>('meal_entries').values.toList()
       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
     final now = DateTime.now();
-    _nextMeal = entries.firstWhere((e) =>
-        e.dateTime.year == now.year &&
-        e.dateTime.month == now.month &&
-        e.dateTime.day == now.day &&
-        e.dateTime.isAfter(now), orElse: () => entries.lastWhere(
-        (e) => e.dateTime.year == now.year && e.dateTime.month == now.month && e.dateTime.day == now.day,
-        orElse: () => entries.isEmpty ? null : entries.last));
+    final todays = entries
+        .where((e) =>
+            e.dateTime.year == now.year &&
+            e.dateTime.month == now.month &&
+            e.dateTime.day == now.day)
+        .toList();
+    _consumedKcal = todays.fold(0.0, (s, e) => s + e.calories);
+    if (todays.isNotEmpty) {
+      final after = todays.where((e) => e.dateTime.isAfter(now)).toList();
+      _nextMeal = after.isNotEmpty ? after.first : todays.last;
+    } else {
+      _nextMeal = null;
+    }
 
-    // Calorias consumidas hoje
-    _consumedKcal = entries.where((e) =>
-      e.dateTime.year == now.year &&
-      e.dateTime.month == now.month &&
-      e.dateTime.day == now.day).fold(0.0, (s, e) => s + e.calories);
+    // Meta diária vinda do perfil
+    final profile = hive.getUserProfile();
+    _dailyGoalKcal = (profile.dailyCalorieGoal ?? 2000).toDouble();
 
     setState(() {});
   }
 
   void _startWorkout() {
     if (_nextSession == null) return;
-    // TODO: Navegar para tela de treino em progresso, passando a sessão _nextSession
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Iniciando ${_nextSession!.name}')));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => WorkoutInProgressScreen(session: _nextSession!),
+      ),
+    );
   }
 
   Future<void> _showAddMenu() async {
@@ -93,10 +110,18 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             ListTile(
               leading: const Icon(Icons.text_fields),
-              title: const Text('Adicionar Refeição por Texto'),
+              title: const Text('Adicionar Refeição por Texto (TACO)'),
               onTap: () async {
                 Navigator.pop(ctx);
                 await _addMealByText();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.auto_awesome),
+              title: const Text('Adicionar Refeição com IA (texto)'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await _addMealByAIText();
               },
             ),
             const Divider(),
@@ -118,19 +143,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final hive = context.read<HiveService>();
     final mealsBox = hive.getBox<Meal>('meals');
 
-    // tenta encontrar no local
-    final localMeal = mealsBox.values.firstWhere(
-      (m) => m.id == barcode, orElse: () => Meal(
-        id: '', name: '', description: '', caloriesPer100g: 0, proteinPer100g: 0, carbsPer100g: 0, fatPer100g: 0));
-    Meal? meal = localMeal.id.isEmpty ? null : localMeal;
+    Meal? meal;
+    try {
+      meal = mealsBox.values.firstWhere((m) => m.id == barcode);
+    } catch (_) {
+      meal = null;
+    }
 
     if (meal == null) {
-      // fallback para OpenFoodFacts
-      final fromApi = await Future.microtask(() async {
-        // instancia local para evitar acoplamento
-        final service = se u_app.core.services.food_api_service.FoodApiService();
-        return service.fetchFoodByBarcode(barcode);
-      });
+      final api = FoodApiService();
+      final fromApi = await api.fetchFoodByBarcode(barcode, retries: 1);
       if (fromApi != null) {
         await mealsBox.add(fromApi);
         meal = fromApi;
@@ -138,6 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (meal == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alimento não encontrado.')));
       return;
     }
@@ -146,8 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _addMealByText() async {
+    final foodRepo = context.read<FoodRepository>();
     final hive = context.read<HiveService>();
-    final foodRepo = context.read<seu_app.core.services.food_repository.FoodRepository>();
     final mealsBox = hive.getBox<Meal>('meals');
 
     final controller = TextEditingController();
@@ -155,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Pesquisar alimento'),
+        title: const Text('Pesquisar alimento (TACO)'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -166,21 +189,97 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          TextButton(onPressed: () async {
-            final q = controller.text.trim();
-            if (q.isEmpty) { Navigator.pop(ctx); return; }
-            final results = foodRepo.searchByName(q);
-            Meal? meal;
-            if (results.isNotEmpty) {
-              meal = results.first;
-              // opcional: salvar cópia local
-              final exists = mealsBox.values.any((m) => m.id == meal!.id);
-              if (!exists) await mealsBox.add(meal);
-            }
-            // TODO (opcional): se não achar, chamar LLM para inferir macros pela descrição
-            Navigator.pop(ctx);
-            if (meal != null) await _collectMealAmountAndSave(meal);
-          }, child: const Text('Ok')),
+          TextButton(
+            onPressed: () async {
+              final q = controller.text.trim();
+              if (q.isEmpty) {
+                Navigator.pop(ctx);
+                return;
+              }
+              final results = foodRepo.searchByName(q);
+              Meal? meal;
+              if (results.isNotEmpty) {
+                meal = results.first;
+                final exists = mealsBox.values.any((m) => m.id == meal!.id);
+                if (!exists) await mealsBox.add(meal);
+              }
+              Navigator.pop(ctx);
+              if (meal != null) {
+                await _collectMealAmountAndSave(meal);
+              } else {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Não encontrado no TACO.')));
+              }
+            },
+            child: const Text('Ok'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addMealByAIText() async {
+    final descCtl = TextEditingController();
+    final gramsCtl = TextEditingController();
+    final labelCtl = TextEditingController(text: 'Refeição');
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Descrever refeição'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: descCtl, decoration: const InputDecoration(hintText: 'Ex.: Prato com frango, arroz e feijão')),
+            const SizedBox(height: 8),
+            TextField(controller: gramsCtl, decoration: const InputDecoration(labelText: 'Gramas (g)'), keyboardType: TextInputType.number),
+            const SizedBox(height: 8),
+            TextField(controller: labelCtl, decoration: const InputDecoration(labelText: 'Rótulo')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              final desc = descCtl.text.trim();
+              final grams = double.tryParse(gramsCtl.text.trim());
+              if (desc.isEmpty || grams == null || grams <= 0) {
+                Navigator.pop(ctx);
+                return;
+              }
+
+              final llm = context.read<LLMService>();
+              if (!llm.isAvailable()) {
+                Navigator.pop(ctx);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Configure a IA no Perfil.')));
+                return;
+              }
+
+              final ai = MealAIService(llm);
+              final meal = await ai.fromText(desc);
+
+              Navigator.pop(ctx);
+              if (meal == null) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não retornou alimento.')));
+                return;
+              }
+
+              final hive = context.read<HiveService>();
+              await hive.getBox<Meal>('meals').add(meal);
+              await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
+                id: const Uuid().v4(),
+                dateTime: DateTime.now(),
+                label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
+                meal: meal,
+                grams: grams,
+              ));
+              _loadDashboard();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição registrada via IA.')));
+            },
+            child: const Text('Criar'),
+          ),
         ],
       ),
     );
@@ -203,22 +302,28 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          TextButton(onPressed: () async {
-            final grams = double.tryParse(gramsCtl.text);
-            if (grams == null || grams <= 0) { Navigator.pop(ctx); return; }
-            final entry = MealEntry(
-              id: const Uuid().v4(),
-              dateTime: DateTime.now(),
-              label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
-              meal: meal,
-              grams: grams,
-            );
-            final hive = context.read<HiveService>();
-            await hive.getBox<MealEntry>('meal_entries').add(entry);
-            Navigator.pop(ctx);
-            _loadDashboard();
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição registrada!')));
-          }, child: const Text('Salvar')),
+          TextButton(
+            onPressed: () async {
+              final grams = double.tryParse(gramsCtl.text);
+              if (grams == null || grams <= 0) {
+                Navigator.pop(ctx);
+                return;
+              }
+              final hive = context.read<HiveService>();
+              await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
+                id: const Uuid().v4(),
+                dateTime: DateTime.now(),
+                label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
+                meal: meal,
+                grams: grams,
+              ));
+              Navigator.pop(ctx);
+              _loadDashboard();
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição registrada!')));
+            },
+            child: const Text('Salvar'),
+          ),
         ],
       ),
     );
@@ -233,16 +338,23 @@ class _HomeScreenState extends State<HomeScreen> {
         content: TextField(controller: ctl, decoration: const InputDecoration(labelText: 'Peso (kg)'), keyboardType: TextInputType.number),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          TextButton(onPressed: () async {
-            final w = double.tryParse(ctl.text);
-            if (w == null || w <= 0) { Navigator.pop(ctx); return; }
-            final hive = context.read<HiveService>();
-            await hive.getBox<WeightEntry>('weight_entries').add(
-              WeightEntry(id: const Uuid().v4(), dateTime: DateTime.now(), weightKg: w),
-            );
-            Navigator.pop(ctx);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Peso registrado!')));
-          }, child: const Text('Salvar')),
+          TextButton(
+            onPressed: () async {
+              final w = double.tryParse(ctl.text);
+              if (w == null || w <= 0) {
+                Navigator.pop(ctx);
+                return;
+              }
+              final hive = context.read<HiveService>();
+              await hive.getBox<WeightEntry>('weight_entries').add(
+                    WeightEntry(id: const Uuid().v4(), dateTime: DateTime.now(), weightKg: w),
+                  );
+              Navigator.pop(ctx);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Peso registrado!')));
+            },
+            child: const Text('Salvar'),
+          ),
         ],
       ),
     );
@@ -251,13 +363,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('dd/MM, HH:mm');
+    final progress = (_consumedKcal / _dailyGoalKcal).clamp(0.0, 1.0);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Resumo do Dia'),
         actions: [
-          IconButton(icon: const Icon(Icons.person), onPressed: () {
-            // Abra seu ProfileScreen pelo MainScaffold ou Navigator
-          }),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
         ],
       ),
       body: Padding(
@@ -267,9 +382,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.fitness_center, color: Colors.blueAccent),
-                title: Text(_nextSession != null
-                    ? 'Próximo Treino: ${_nextSession!.name}'
-                    : 'Nenhum treino agendado'),
+                title: Text(_nextSession != null ? 'Próximo Treino: ${_nextSession!.name}' : 'Nenhum treino agendado'),
                 subtitle: Text(_nextSession != null ? 'Dia: $_nextSessionDayName' : ''),
                 trailing: ElevatedButton(
                   onPressed: _nextSession == null ? null : _startWorkout,
@@ -297,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text('Meta: ${_dailyGoalKcal.toStringAsFixed(0)} kcal'),
                   ]),
                   const SizedBox(height: 8),
-                  LinearProgressIndicator(value: (_consumedKcal / _dailyGoalKcal).clamp(0.0, 1.0)),
+                  LinearProgressIndicator(value: progress),
                 ]),
               ),
             ),

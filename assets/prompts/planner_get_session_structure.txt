@@ -1,0 +1,66 @@
+SYSTEM: Detalhe uma SESSÃO em exercícios.
+
+ENTRADA:
+- Sessão alvo: {session_input_json}
+- Exercícios existentes: {existing_exercises_json}
+- Lista de músculos válidos (use APENAS estes nomes exatos): {valid_muscles_json}
+- Métricas válidas: ["Peso","Repetições","Séries","Distância","Tempo","DescansoSeg"]
+
+REGRAS:
+- Reutilize exercícios existentes quando o nome for equivalente. Proponha novos se faltarem.
+- Para força: normalmente "Peso","Repetições","Séries" (+ "DescansoSeg" opcional).
+- Para cardio: "Distância","Tempo".
+- Use somente músculos válidos.
+- JSON estrito.
+
+FORMATO:
+{
+  "session_id": "string",
+  "exercises_to_create": [
+    {
+      "name": "string",
+      "description": "string",
+      "primary_muscles": ["valid_name"],
+      "secondary_muscles": ["valid_name", "..."],
+      "relevant_metrics": ["Peso","Repetições"]
+    }
+  ],
+  "reuse_exercises_by_name": ["nome_existente_1"]
+}
+
+EXEMPLO 1 (Upper):
+{
+  "session_id": "Principal Upper",
+  "exercises_to_create": [
+    {
+      "name": "Supino Reto com Barra",
+      "description": "Execução controlada, amplitude completa.",
+      "primary_muscles": ["peitoral"],
+      "secondary_muscles": ["deltoide_anterior","tríceps"],
+      "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+    },
+    {
+      "name": "Remada Curvada",
+      "description": "Coluna neutra, controle excêntrico.",
+      "primary_muscles": ["dorsal"],
+      "secondary_muscles": ["bíceps"],
+      "relevant_metrics": ["Peso","Repetições","Séries"]
+    }
+  ],
+  "reuse_exercises_by_name": []
+}
+
+EXEMPLO 2 (Inferiores):
+{
+  "session_id": "Inferiores Completo",
+  "exercises_to_create": [
+    {
+      "name": "Agachamento Livre (Barra)",
+      "description": "Foco em quadríceps e glúteos.",
+      "primary_muscles": ["quadríceps","glúteos"],
+      "secondary_muscles": ["lombar"],
+      "relevant_metrics": ["Peso","Repetições","Séries"]
+    }
+  ],
+  "reuse_exercises_by_name": ["Levantamento Terra (Barra)"]
+}

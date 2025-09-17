@@ -18,6 +18,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   DateTime? _selectedDay;
 
   WorkoutRoutine? _workoutRoutine;
+  DietRoutine? _dietRoutine;
 
   @override
   void initState() {
@@ -29,13 +30,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   void _loadRoutines() {
     final hive = context.read<HiveService>();
-    final rts = hive.getBox<WorkoutRoutine>('workout_routines').values.toList();
-    setState(() => _workoutRoutine = rts.isEmpty ? null : rts.first);
+    final wr = hive.getBox<WorkoutRoutine>('workout_routines').values.toList();
+    final dr = hive.getBox<DietRoutine>('diet_routines').values.toList();
+    setState(() {
+      _workoutRoutine = wr.isEmpty ? null : wr.first;
+      _dietRoutine = dr.isEmpty ? null : dr.first;
+    });
     _selectedEvents.value = _getEventsForDay(_selectedDay!);
   }
 
   List<String> _getEventsForDay(DateTime day) {
     final List<String> events = [];
+
+    // Workout
     if (_workoutRoutine != null) {
       final r = _workoutRoutine!;
       final diff = day.difference(r.startDate).inDays;
@@ -47,60 +54,75 @@ class _PlannerScreenState extends State<PlannerScreen> {
         }
       }
     }
-    // (Extensão futura) diet routine aqui
+
+    // Diet
+    if (_dietRoutine != null) {
+      final r = _dietRoutine!;
+      final diff = day.difference(r.startDate).inDays;
+      if (diff >= 0 && r.days.isNotEmpty) {
+        final idx = diff % r.days.length;
+        final dd = r.days[idx];
+        events.add('Dieta: ${dd.name}');
+      }
+    }
+
     return events;
   }
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
     if (!isSameDay(_selectedDay, selectedDay)) {
-      setState(() { _selectedDay = selectedDay; _focusedDay = focusedDay; });
+      setState(() {
+        _selectedDay = selectedDay;
+        _focusedDay = focusedDay;
+      });
       _selectedEvents.value = _getEventsForDay(selectedDay);
     }
   }
 
   @override
-  void dispose() { _selectedEvents.dispose(); super.dispose(); }
+  void dispose() {
+    _selectedEvents.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Planejador')),
-      body: Column(
-        children: [
-          TableCalendar<String>(
-            firstDay: DateTime.utc(2024,1,1),
-            lastDay: DateTime.utc(2026,12,31),
-            focusedDay: _focusedDay,
-            selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-            calendarFormat: _calendarFormat,
-            startingDayOfWeek: StartingDayOfWeek.monday,
-            eventLoader: _getEventsForDay,
-            onDaySelected: _onDaySelected,
-            onFormatChanged: (format) => setState(() => _calendarFormat = format),
-            onPageChanged: (focusedDay) => _focusedDay = focusedDay,
-          ),
-          const Divider(),
-          Expanded(
-            child: ValueListenableBuilder<List<String>>(
-              valueListenable: _selectedEvents,
-              builder: (context, value, _) {
-                if (value.isEmpty) return const Center(child: Text('Nenhuma atividade planejada.'));
-                return ListView.builder(
-                  itemCount: value.length,
-                  itemBuilder: (_, i) => Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    child: ListTile(
-                      leading: const Icon(Icons.fitness_center, color: Colors.blueAccent),
-                      title: Text(value[i]),
-                      onTap: () {},
-                    ),
+      body: Column(children: [
+        TableCalendar<String>(
+          firstDay: DateTime.utc(2024, 1, 1),
+          lastDay: DateTime.utc(2026, 12, 31),
+          focusedDay: _focusedDay,
+          selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
+          calendarFormat: _calendarFormat,
+          startingDayOfWeek: StartingDayOfWeek.monday,
+          eventLoader: _getEventsForDay,
+          onDaySelected: _onDaySelected,
+          onFormatChanged: (format) => setState(() => _calendarFormat = format),
+          onPageChanged: (focusedDay) => _focusedDay = focusedDay,
+        ),
+        const Divider(),
+        Expanded(
+          child: ValueListenableBuilder<List<String>>(
+            valueListenable: _selectedEvents,
+            builder: (context, value, _) {
+              if (value.isEmpty) return const Center(child: Text('Nenhuma atividade planejada.'));
+              return ListView.builder(
+                itemCount: value.length,
+                itemBuilder: (_, i) => Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: ListTile(
+                    leading: Icon(value[i].startsWith('Treino') ? Icons.fitness_center : Icons.restaurant),
+                    title: Text(value[i]),
+                    onTap: () {},
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ]),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewPlanFlowScreen())),
         label: const Text('Gerar Plano com IA'),

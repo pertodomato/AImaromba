@@ -1,47 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:seu_app/core/services/theme_service.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  bool _isDarkMode = true; // O valor inicial viria de um serviço de tema
-
-  @override
   Widget build(BuildContext context) {
+    final theme = context.watch<ThemeService>();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Configurações'),
-      ),
+      appBar: AppBar(title: const Text('Configurações')),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
           SwitchListTile(
             title: const Text('Tema Escuro'),
-            value: _isDarkMode,
-            onChanged: (bool value) {
-              setState(() {
-                _isDarkMode = value;
-                // Aqui você chamaria a lógica para trocar o tema do app
-                // (geralmente com um ThemeProvider)
-              });
-            },
+            value: theme.isDark,
+            onChanged: (v) => context.read<ThemeService>().setDark(v),
             secondary: const Icon(Icons.dark_mode),
           ),
-          ListTile(
-            leading: const Icon(Icons.storage),
-            title: const Text('Ver Bancos de Dados'),
-            onTap: () {
-              // Navegar para a tela de visualização dos bancos de dados
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('Sobre o App'),
-            onTap: () {},
+          const Divider(),
+          const ListTile(
+            leading: Icon(Icons.info_outline),
+            title: Text('Sobre o App'),
           ),
         ],
       ),

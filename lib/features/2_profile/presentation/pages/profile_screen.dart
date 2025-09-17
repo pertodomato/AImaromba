@@ -23,6 +23,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _gptApiKeyController;
   String _selectedLlmProvider = 'gemini';
 
+  bool _checking = false;
+  bool? _connected;
+
   @override
   void initState() {
     super.initState();
@@ -54,22 +57,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final hiveService = context.read<HiveService>();
       hiveService.saveUserProfile(updatedProfile);
       context.read<LLMService>().initialize(updatedProfile);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Perfil salvo com sucesso!')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Perfil salvo')));
     }
+  }
+
+  Future<void> _checkLLM() async {
+    setState(() => _checking = true);
+    final ok = await context.read<LLMService>().ping();
+    setState(() {
+      _connected = ok;
+      _checking = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final status = _checking
+        ? const Text('Testando...', style: TextStyle(color: Colors.amber))
+        : (_connected == true
+            ? const Text('Conectado', style: TextStyle(color: Colors.green))
+            : (_connected == false ? const Text('Desconectado', style: TextStyle(color: Colors.red)) : const Text('')));
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Meu Perfil'),
-        actions: [IconButton(icon: const Icon(Icons.save), onPressed: _saveProfile)],
+        actions: [
+          IconButton(icon: const Icon(Icons.save), onPressed: _saveProfile),
+          IconButton(icon: const Icon(Icons.power), onPressed: _checkLLM, tooltip: 'Testar LLM'),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [const Text('Status LLM: '), status]),
+            const SizedBox(height: 12),
             Text('Informações Pessoais', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Nome')),

@@ -1,0 +1,41 @@
+SYSTEM: Detalhe um DIA DE DIETA em refeições.
+
+ENTRADA:
+- Dia alvo: {diet_day_placeholder_json}
+- Refeições existentes conhecidas: {existing_meals_summary}
+- Preferências do usuário: {user_food_prefs}
+
+REGRAS:
+- Proponha refeições típicas desse dia (café, almoço, lanche, jantar), mas não fixe o número.
+- As porções serão definidas depois. Aqui só a estrutura e nomes.
+- JSON estrito.
+
+FORMATO:
+{
+  "diet_day_id": "placeholder_id",
+  "meals_to_create": [
+    { "name": "string", "description": "string" }
+  ],
+  "reuse_meals_by_name": ["nome_existente_1"]
+}
+
+EXEMPLO 1:
+{
+  "diet_day_id": "semana_normal",
+  "meals_to_create": [
+    { "name": "Café da Manhã Proteico", "description": "Ovos + fruta + fonte de carbo complexo." },
+    { "name": "Almoço", "description": "Proteína magra, arroz/feijão, salada." },
+    { "name": "Lanche da Tarde", "description": "Iogurte proteico + fruta." },
+    { "name": "Jantar", "description": "Proteína magra, vegetais, carbo moderado." }
+  ],
+  "reuse_meals_by_name": []
+}
+
+EXEMPLO 2:
+{
+  "diet_day_id": "fim_de_semana",
+  "meals_to_create": [
+    { "name": "Livre 1", "description": "Uma refeição livre com controle de porção." }
+  ],
+  "reuse_meals_by_name": ["Almoço"]
+}

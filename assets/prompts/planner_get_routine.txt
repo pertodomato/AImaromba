@@ -5,36 +5,81 @@ INFORMAÇÕES FORNECIDAS:
 - Respostas do Questionário: {user_answers}
 - Dias de Treino já existentes no Banco de Dados: {existing_workout_days}
 
-Sua tarefa é criar a rotina e a lista de novos dias de treino necessários. Use os dias existentes se eles se encaixarem no plano.
-Retorne sua resposta ESTRITAMENTE no formato JSON.
+REGRAS:
+- Use dias existentes quando compatíveis; crie placeholders novos quando necessário.
+- Campos obrigatórios. Sem texto fora do JSON.
+- Schemas e nomes estáveis em snake_case.
+- repetition_schema: "Semanal" | "Quinzenal" | "Mensal".
 
----
+FORMATO:
+{
+  "routine": {
+    "name": "string",
+    "description": "string",
+    "repetition_schema": "Semanal|Quinzenal|Mensal",
+    "day_sequence_placeholders": ["placeholder_or_descanso", "..."]
+  },
+  "days_to_create": [
+    { "placeholder_id": "string", "name": "string", "description": "string" }
+  ]
+}
+
 EXEMPLO 1 (Rotina ABC simples):
 {
   "routine": {
     "name": "Rotina de Hipertrofia Clássica ABC",
-    "description": "Uma rotina semanal com foco em hipertrofia, dividida em três treinos principais que se repetem toda semana.",
+    "description": "Semanal, 3 treinos que se repetem.",
     "repetition_schema": "Semanal",
     "day_sequence_placeholders": ["dia_peito_triceps", "dia_costas_biceps", "dia_pernas_ombros", "descanso", "dia_peito_triceps", "dia_costas_biceps", "descanso"]
   },
   "days_to_create": [
-    { "placeholder_id": "dia_peito_triceps", "name": "Treino A - Peito, Tríceps e Ombros", "description": "Um dia de treino com foco total em exercícios de empurrar." },
-    { "placeholder_id": "dia_costas_biceps", "name": "Treino B - Costas e Bíceps", "description": "Um dia de treino com foco total em exercícios de puxar." },
-    { "placeholder_id": "dia_pernas_ombros", "name": "Treino C - Pernas e Ombros", "description": "Um dia de treino com foco nos membros inferiores e desenvolvimento de ombros." }
+    { "placeholder_id": "dia_peito_triceps", "name": "Treino A - Peito, Tríceps e Ombros", "description": "Ênfase em empurrar." },
+    { "placeholder_id": "dia_costas_biceps", "name": "Treino B - Costas e Bíceps", "description": "Ênfase em puxar." },
+    { "placeholder_id": "dia_pernas_ombros", "name": "Treino C - Pernas e Ombros", "description": "Membros inferiores e deltoides." }
   ]
 }
----
-EXEMPLO 2 (Rotina Full Body para iniciante):
+
+EXEMPLO 2 (Full Body iniciante):
 {
   "routine": {
-    "name": "Rotina Full Body para Iniciantes (Gerado por IA (voce))",
-    "description": "Uma rotina para iniciantes focada em treinar o corpo inteiro 3 vezes por semana, para adaptação e ganho de força inicial.",
+    "name": "Full Body 3x/semana (iniciante)",
+    "description": "Adaptação e força inicial.",
     "repetition_schema": "Semanal",
     "day_sequence_placeholders": ["dia_fullbody_1", "descanso", "dia_fullbody_2", "descanso", "dia_fullbody_1", "descanso", "descanso"]
   },
   "days_to_create": [
-    { "placeholder_id": "dia_fullbody_1", "name": "Treino Full Body Principal", "description": "Um treino que trabalha os principais grupos musculares com exercícios compostos." },
-    { "placeholder_id": "dia_fullbody_2", "name": "Treino Full Body com Variação", "description": "Um treino de corpo inteiro com variações nos exercícios para estimular os músculos de forma diferente." }
+    { "placeholder_id": "dia_fullbody_1", "name": "Full Body Principal", "description": "Exercícios compostos." },
+    { "placeholder_id": "dia_fullbody_2", "name": "Full Body Variação", "description": "Variações dos compostos." }
   ]
 }
----
+
+EXEMPLO 3 (Upper/Lower intermediário):
+{
+  "routine": {
+    "name": "Upper/Lower 4x",
+    "description": "Dois treinos de superiores e dois de inferiores.",
+    "repetition_schema": "Semanal",
+    "day_sequence_placeholders": ["upper_1", "lower_1", "descanso", "upper_2", "lower_2", "descanso", "descanso"]
+  },
+  "days_to_create": [
+    { "placeholder_id": "upper_1", "name": "Upper A", "description": "Peito/costas/ombros/braços." },
+    { "placeholder_id": "lower_1", "name": "Lower A", "description": "Quadríceps/glúteos/posterior." },
+    { "placeholder_id": "upper_2", "name": "Upper B", "description": "Variação de superiores." },
+    { "placeholder_id": "lower_2", "name": "Lower B", "description": "Variação de inferiores." }
+  ]
+}
+
+EXEMPLO 4 (PPL 6x avançado):
+{
+  "routine": {
+    "name": "Push Pull Legs 6x",
+    "description": "Alto volume para avançados.",
+    "repetition_schema": "Semanal",
+    "day_sequence_placeholders": ["push", "pull", "legs", "push", "pull", "legs", "descanso"]
+  },
+  "days_to_create": [
+    { "placeholder_id": "push", "name": "Push", "description": "Peito/ombros/tríceps." },
+    { "placeholder_id": "pull", "name": "Pull", "description": "Costas/bíceps." },
+    { "placeholder_id": "legs", "name": "Legs", "description": "Inferiores." }
+  ]
+}

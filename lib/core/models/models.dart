@@ -8,3 +8,5 @@ export 'meal_entry.dart';
 export 'weight_entry.dart';
 export 'diet_day.dart';
 export 'diet_routine.dart';
+export 'workout_set_entry.dart';
+export 'workout_session_log.dart';

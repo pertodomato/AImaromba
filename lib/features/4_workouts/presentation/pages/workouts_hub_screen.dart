@@ -3,9 +3,12 @@ import 'package:muscle_selector/muscle_selector.dart';
 import 'package:provider/provider.dart';
 import 'package:seu_app/core/models/exercise.dart';
 import 'package:seu_app/core/models/workout_session.dart';
+import 'package:seu_app/core/models/workout_set_entry.dart';
+import 'package:seu_app/core/services/benchmarks_service.dart';
 import 'package:seu_app/core/services/hive_service.dart';
 import 'package:seu_app/features/4_workouts/presentation/pages/exercise_creation_screen.dart';
 import 'package:seu_app/features/4_workouts/presentation/pages/workout_session_creation_screen.dart';
+import 'package:seu_app/features/4_workouts/presentation/widgets/progress_charts.dart';
 
 class WorkoutsHubScreen extends StatefulWidget {
   const WorkoutsHubScreen({super.key});
@@ -23,54 +26,43 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
   }
 
   void _loadMuscleData() {
-    final exercises = context.read<HiveService>().getBox<Exercise>('exercises').values.toList();
-    final Map<String, double> muscleActivation = {};
-    for (var ex in exercises) {
-      for (var m in ex.primaryMuscles) { muscleActivation[m] = (muscleActivation[m] ?? 0) + 1.0; }
-      for (var m in ex.secondaryMuscles) { muscleActivation[m] = (muscleActivation[m] ?? 0) + 0.5; }
+    final hive = context.read<HiveService>();
+    final bench = context.read<BenchmarksService>();
+    final profile = hive.getUserProfile();
+    final exBox = hive.getBox<Exercise>('exercises');
+    final setBox = hive.getBox<WorkoutSetEntry>('workout_set_entries');
+
+    final allExercises = exBox.values.toList();
+    final sets = setBox.values.toList();
+
+    // Calcula melhor desempenho por categoria de benchmark
+    final byBench = bench.computeUserBenchmarks(profile, allExercises, sets);
+
+    // Mapeia benchmark->músculos e aplica percentil 0..1
+    final muscleScore = <String, double>{};
+    void acc(List<String> muscles, double pct) {
+      for (final m in muscles) {
+        muscleScore[m] = (muscleScore[m] ?? 0) + pct;
+      }
     }
+
+    acc(['peitoral', 'deltoide_anterior', 'tríceps'], byBench['supino_masculino']?.percentile ?? 0);
+    acc(['quadríceps', 'glúteos', 'lombar'], byBench['agachamento_masculino']?.percentile ?? 0);
+    acc(['lombar', 'glúteos', 'posterior_coxa'], byBench['terra_masculino']?.percentile ?? 0);
+    acc(['dorsal', 'bíceps'], byBench['barra_fixa_masculino']?.percentile ?? 0);
+
+    // Normaliza 0..1
     double maxA = 1.0;
-    if (muscleActivation.isNotEmpty) {
-      maxA = muscleActivation.values.reduce((a, b) => a > b ? a : b);
+    if (muscleScore.isNotEmpty) {
+      maxA = muscleScore.values.reduce((a, b) => a > b ? a : b);
     }
-    final Map<Muscle, double> values = {};
-    for (var e in muscleActivation.entries) {
+    final values = <Muscle, double>{};
+    for (final e in muscleScore.entries) {
       final muscle = Muscle.values.byNameOrNull(e.key);
-      if (muscle != null) values[muscle] = e.value / maxA;
+      if (muscle != null) values[muscle] = (e.value / maxA).clamp(0.0, 1.0);
     }
+
     setState(() => _muscleValues = values);
-  }
-
-  void _showExercisesForMuscle(Muscle muscle) {
-    final exercises = context
-        .read<HiveService>()
-        .getBox<Exercise>('exercises')
-        .values
-        .where((ex) => ex.primaryMuscles.contains(muscle.name) || ex.secondaryMuscles.contains(muscle.name))
-        .toList();
-
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text("Exercícios para ${muscle.name}", style: Theme.of(context).textTheme.titleLarge),
-            const Divider(),
-            if (exercises.isEmpty)
-              const Padding(padding: EdgeInsets.all(16), child: Text("Nenhum exercício encontrado.")),
-            if (exercises.isNotEmpty)
-              SizedBox(
-                height: 300,
-                child: ListView.builder(
-                  itemCount: exercises.length,
-                  itemBuilder: (context, i) => ListTile(title: Text(exercises[i].name)),
-                ),
-              ),
-          ]),
-        ),
-      ),
-    );
   }
 
   @override
@@ -84,12 +76,11 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            SizedBox(
-              height: 480,
-              child: MuscleSelector(
-                muscleData: _muscleValues,
-                onSelect: (muscle, details) => _showExercisesForMuscle(muscle),
-              ),
+            SizedBox(height: 480, child: MuscleSelector(muscleData: _muscleValues, onSelect: (m, _) {})),
+            const Divider(),
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: const ProgressCharts(),
             ),
             const Divider(),
             Padding(
@@ -104,16 +95,13 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
               ]),
             ),
             if (sessions.isEmpty)
-              const Padding(padding: EdgeInsets.all(8), child: Text('Nenhuma sessão criada.')),
-            if (sessions.isNotEmpty)
+              const Padding(padding: EdgeInsets.all(8), child: Text('Nenhuma sessão criada.'))
+            else
               ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemBuilder: (_, i) => ListTile(
-                  title: Text(sessions[i].name),
-                  subtitle: Text(sessions[i].description),
-                ),
+                itemBuilder: (_, i) => ListTile(title: Text(sessions[i].name), subtitle: Text(sessions[i].description)),
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemCount: sessions.length,
               ),
@@ -137,7 +125,9 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
 
 extension MuscleByName on Iterable<Muscle> {
   Muscle? byNameOrNull(String name) {
-    for (var v in this) { if (v.name == name) return v; }
+    for (var v in this) {
+      if (v.name == name) return v;
+    }
     return null;
   }
 }

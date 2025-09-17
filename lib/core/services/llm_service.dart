@@ -1,48 +1,57 @@
+import 'dart:convert';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:dart_openai/dart_openai.dart';
 import 'package:seu_app/core/models/user_profile.dart';
 
-// Interface
+/// Interface
 abstract class LLMProvider {
   Future<String> getResponse(String prompt, {List<String>? imageBase64});
 }
 
-// Implementação para Gemini
+/// Gemini
 class GeminiProvider implements LLMProvider {
   final String apiKey;
-  late final GenerativeModel _model;
-  late final GenerativeModel _visionModel;
+  final String textModel;
+  final String visionModel;
 
-  GeminiProvider(this.apiKey) {
-    _model = GenerativeModel(model: 'gemini-2.5-pro', apiKey: apiKey); // Verifique o nome do modelo mais recente
-    _visionModel = GenerativeModel(model: 'gemini-pro-vision', apiKey: apiKey);
+  late final GenerativeModel _text;
+  late final GenerativeModel _vision;
+
+  GeminiProvider(this.apiKey, {String? textModel, String? visionModel})
+      : textModel = textModel?.trim().isNotEmpty == true ? textModel! : 'gemini-2.5-pro',
+        visionModel = visionModel?.trim().isNotEmpty == true ? visionModel! : 'gemini-1.5-pro-vision' {
+    _text = GenerativeModel(model: this.textModel, apiKey: apiKey);
+    _vision = GenerativeModel(model: this.visionModel, apiKey: apiKey);
   }
 
   @override
   Future<String> getResponse(String prompt, {List<String>? imageBase64}) async {
     try {
       if (imageBase64 != null && imageBase64.isNotEmpty) {
-        final imageParts = imageBase64.map((img) => DataPart('image/jpeg', Uri.dataFromBytes(img.codeUnits).data!.contentAsBytes())).toList();
-        final content = [Content.multi([...imageParts, TextPart(prompt)])];
-        final response = await _visionModel.generateContent(content);
-        return response.text ?? "Erro: Não obtive resposta do modelo de visão.";
+        final parts = <DataPart>[];
+        for (final b64 in imageBase64) {
+          final bytes = base64Decode(b64);
+          parts.add(DataPart('image/jpeg', bytes));
+        }
+        final resp = await _vision.generateContent([Content.multi([...parts, TextPart(prompt)])]);
+        return resp.text ?? 'Erro: resposta vazia do modelo de visão.';
       } else {
-        final content = [Content.text(prompt)];
-        final response = await _model.generateContent(content);
-        return response.text ?? "Erro: Não obtive resposta do modelo.";
+        final resp = await _text.generateContent([Content.text(prompt)]);
+        return resp.text ?? 'Erro: resposta vazia do modelo.';
       }
     } catch (e) {
-      print("Erro na API Gemini: $e");
-      return "Erro ao contatar a API do Gemini. Verifique sua chave e conexão.";
+      return 'Erro Gemini: $e';
     }
   }
 }
 
-// Implementação para GPT
+/// GPT
 class GPTProvider implements LLMProvider {
   final String apiKey;
+  final String model;
 
-  GPTProvider(this.apiKey) {
+  GPTProvider(this.apiKey, {String? model})
+      : model = model?.trim().isNotEmpty == true ? model! : 'gpt-4o' {
     OpenAI.apiKey = apiKey;
   }
 
@@ -50,55 +59,76 @@ class GPTProvider implements LLMProvider {
   Future<String> getResponse(String prompt, {List<String>? imageBase64}) async {
     try {
       if (imageBase64 != null && imageBase64.isNotEmpty) {
-        // GPT-5/4o Vision
-        final imageMessages = imageBase64.map((img) => OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl("data:image/jpeg;base64,$img")).toList();
+        final content = <OpenAIChatCompletionChoiceMessageContentItemModel>[
+          OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt),
+          for (final b64 in imageBase64)
+            OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl('data:image/jpeg;base64,$b64'),
+        ];
         final response = await OpenAI.instance.chat.create(
-          model: "gpt-4o", // ou o modelo mais recente com visão
+          model: model,
           messages: [
-            OpenAIChatCompletionChoiceMessageModel(role: OpenAIChatMessageRole.user, content: [
-              OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt),
-              ...imageMessages,
-            ]),
+            OpenAIChatCompletionChoiceMessageModel(role: OpenAIChatMessageRole.user, content: content),
           ],
         );
-        return response.choices.first.message.content?.first.text ?? "Erro: Não obtive resposta do modelo de visão GPT.";
+        return response.choices.first.message.content?.first.text ?? 'Erro: resposta vazia (visão).';
       } else {
         final response = await OpenAI.instance.chat.create(
-          model: "gpt-4o", // ou o modelo de texto mais recente
-          responseFormat: {"type": "json_object"}, // Forçar saída JSON
+          model: model,
+          responseFormat: {"type": "json_object"},
           messages: [
-            OpenAIChatCompletionChoiceMessageModel(role: OpenAIChatMessageRole.system, content: [OpenAIChatCompletionChoiceMessageContentItemModel.text("You are a helpful assistant designed to output JSON.")]),
-            OpenAIChatCompletionChoiceMessageModel(role: OpenAIChatMessageRole.user, content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)]),
+            OpenAIChatCompletionChoiceMessageModel(
+              role: OpenAIChatMessageRole.system,
+              content: [OpenAIChatCompletionChoiceMessageContentItemModel.text('Você responde apenas JSON.')],
+            ),
+            OpenAIChatCompletionChoiceMessageModel(
+              role: OpenAIChatMessageRole.user,
+              content: [OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)],
+            ),
           ],
         );
-        return response.choices.first.message.content?.first.text ?? "Erro: Não obtive resposta do modelo GPT.";
+        return response.choices.first.message.content?.first.text ?? 'Erro: resposta vazia.';
       }
     } catch (e) {
-      print("Erro na API OpenAI: $e");
-      return "Erro ao contatar a API do OpenAI. Verifique sua chave e conexão.";
+      return 'Erro OpenAI: $e';
     }
   }
 }
 
-// Serviço principal que o app usará
+/// Serviço principal
 class LLMService {
   LLMProvider? _provider;
 
   void initialize(UserProfile profile) {
     if (profile.selectedLlm == 'gemini' && profile.geminiApiKey.isNotEmpty) {
-      _provider = GeminiProvider(profile.geminiApiKey);
+      _provider = GeminiProvider(
+        profile.geminiApiKey,
+        textModel: 'gemini-2.5-pro',
+        visionModel: 'gemini-1.5-pro-vision',
+      );
     } else if (profile.selectedLlm == 'gpt' && profile.gptApiKey.isNotEmpty) {
-      _provider = GPTProvider(profile.gptApiKey);
+      _provider = GPTProvider(
+        profile.gptApiKey,
+        model: 'gpt-4o',
+      );
     } else {
       _provider = null;
     }
   }
 
   bool isAvailable() => _provider != null;
-
+  Future<bool> ping({Duration timeout = const Duration(seconds: 6)}) async {
+    if (_provider == null) return false;
+    try {
+      final f = _provider!.getResponse('{"ping":true}');
+      final res = await f.timeout(timeout);
+      return res.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
   Future<String> generateResponse(String prompt, {List<String>? imagesBase64}) {
     if (_provider == null) {
-      throw Exception("LLM Provider não inicializado. Verifique as chaves de API no perfil.");
+      throw Exception('LLM Provider não inicializado. Configure no Perfil.');
     }
     return _provider!.getResponse(prompt, imageBase64: imagesBase64);
   }
