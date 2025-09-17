@@ -1,39 +1,51 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:provider/provider.dart';
+import 'package:seu_app/core/services/hive_service.dart';
+import 'package:seu_app/core/services/llm_service.dart';
+import 'package:seu_app/main_scaffold.dart';
 
-import 'data/db/db_factory.dart';
-import 'presentation/screens/dashboard_screen.dart'; // ajuste o caminho se necessário
-import 'screens/nutrition/add_meal_route.dart';      // ajuste o caminho se necessário
-
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await initDbFactory(); // configura Drift (sqlite3.wasm no Web; nativo no mobile/desktop)
-  runApp(const ProviderScope(child: FitApp()));
+  
+  // Instanciamos nossos serviços uma única vez.
+  final hiveService = HiveService();
+  await hiveService.init();
+  final llmService = LLMService();
+
+  runApp(
+    // O MultiProvider torna os serviços disponíveis para todos os widgets filhos.
+    MultiProvider(
+      providers: [
+        Provider<HiveService>.value(value: hiveService),
+        Provider<LLMService>.value(value: llmService),
+        // Se tivéssemos mais serviços (FoodApiService), adicionaríamos aqui.
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
-class FitApp extends StatelessWidget {
-  const FitApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: Colors.teal,
-        brightness: Brightness.dark,
-      ),
-    );
-
+    // Inicializamos o LLMService aqui, após o perfil do usuário ser carregado.
+    // Isso garante que a chave de API correta seja usada.
+    final userProfile = context.read<HiveService>().getUserProfile();
+    context.read<LLMService>().initialize(userProfile);
+    
     return MaterialApp(
-      title: 'FitApp',
-      theme: theme,
-      debugShowCheckedModeBanner: false,
-      initialRoute: '/',
-      routes: {
-        '/': (_) => const DashboardScreen(),
-        '/nutrition/add': (_) => const AddMealRoute(),
-      },
+      title: 'Fitness AI',
+      theme: ThemeData.dark().copyWith(
+        primaryColor: Colors.blueAccent,
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        cardColor: const Color(0xFF1E1E1E),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Color(0xFF1E1E1E),
+        ),
+      ),
+      home: const MainScaffold(),
     );
   }
 }

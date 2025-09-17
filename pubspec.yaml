@@ -4,35 +4,32 @@ version: 1.0.0+1
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
-
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations:
-    sdk: flutter
-
-  go_router: ^14.2.0
-  flutter_riverpod: ^2.5.1
-
-  # Drift + SQLite nativo + Web (wasm)
-  drift: ^2.17.0
-  drift_flutter: ^0.2.0
-  sqlite3_flutter_libs: ^0.5.24
-
-  # Úteis
-  path_provider: ^2.1.3
-  path: ^1.9.0
-  flutter_secure_storage: ^9.2.2
-  http: ^1.2.2
-  flutter_svg: ^2.0.10+1
-  fl_chart: ^0.68.0
+    uses-material-design: true
+  provider: ^6.1.2 
+  # Banco de Dados Local
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  assets:
+    - assets/prompts/
+  # Conectividade e APIs
+  dio: ^5.4.3+1 # Para chamadas HTTP
+  google_generative_ai: ^0.4.1 # API do Gemini
+  dart_openai: ^5.1.0 # API do OpenAI (GPT)
   table_calendar: ^3.1.2
-  archive: ^3.6.1
-  file_picker: ^8.0.5
-  image: ^4.1.7
-  image_picker: ^1.0.7
-  mobile_scanner: ^5.2.3
-
+  # UI & Utilidades
+  provider: ^6.1.2 # Gerenciamento de estado simples
+  intl: ^0.19.0 # Para formatação de datas
+  fl_chart: ^0.68.0 # Para gráficos
+  equatable: ^2.0.5 # Para comparação de objetos
+  
+  # Hardware & Sensores
+  mobile_scanner: ^5.1.1 # Leitor de QR Code e Código de Barras
+  image_picker: ^1.1.2 # Para pegar imagens da câmera/galeria
+  
+  # O mapa muscular que você pediu
   muscle_selector:
     git:
       url: https://github.com/EmilCes/muscle_selector
@@ -40,16 +37,5 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.0
-  drift_dev: ^2.17.0
-  build_runner: ^2.7.2
-
-flutter:
-  uses-material-design: true
-  assets:
-    - assets/exercise_db.json
-    - assets/benchmarks.json
-    - assets/taco.json
-    - assets/muscle_front.svg
-    - assets/muscle_back.svg
-    - assets/prompts/
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.9
