@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:seu_app/core/models/models.dart';
-import 'package:seu_app/core/services/hive_service.dart';
-import 'package:seu_app/features/3_planner/presentation/pages/new_plan_flow_screen.dart';
+import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/services/hive_service.dart';
+import 'package:fitapp/features/3_planner/presentation/pages/new_plan_flow_screen.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});

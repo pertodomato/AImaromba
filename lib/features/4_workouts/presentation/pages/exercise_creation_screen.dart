@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:muscle_selector/muscle_selector.dart'; // necessário para listar músculos válidos
-import 'package:seu_app/core/models/exercise.dart';
-import 'package:seu_app/core/services/hive_service.dart';
-import 'package:seu_app/core/utils/muscle_validation.dart';
+import 'package:fitapp/core/models/exercise.dart';
+import 'package:fitapp/core/services/hive_service.dart';
+import 'package:fitapp/core/utils/muscle_validation.dart';
 
 class ExerciseCreationScreen extends StatefulWidget {
   const ExerciseCreationScreen({super.key});
@@ -19,9 +18,8 @@ class _ExerciseCreationScreenState extends State<ExerciseCreationScreen> {
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  // nomes exatamente como em muscle_selector
-  late final List<String> _allMuscles =
-      Muscle.values.map((m) => m.name).toList();
+  // nomes exatamente como definidos no muscle_validation.dart
+  late final List<String> _allMuscles = kValidGroupIds.toList();
 
   // métricas padrão
   static const List<String> _allMetrics = <String>[
@@ -44,9 +42,9 @@ class _ExerciseCreationScreenState extends State<ExerciseCreationScreen> {
   }
 
   void _finalizeMuscles() {
-    // garante nomes válidos do mapa muscular
+    // mantém apenas válidos e remove interseção (secundários ≠ primários)
     final prim = _primaryMuscles.where(isValidMuscleName).toSet();
-    final sec = _secondaryMuscles.where(isValidMuscleName).toSet();
+    final sec = _secondaryMuscles.where(isValidMuscleName).toSet()..removeAll(prim);
     _primaryMuscles
       ..clear()
       ..addAll(prim);

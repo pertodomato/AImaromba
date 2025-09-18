@@ -2,9 +2,9 @@ import 'package:collection/collection.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:seu_app/core/models/exercise.dart';
-import 'package:seu_app/core/models/workout_set_entry.dart';
-import 'package:seu_app/core/services/hive_service.dart';
+import 'package:fitapp/core/models/exercise.dart';
+import 'package:fitapp/core/models/workout_set_entry.dart';
+import 'package:fitapp/core/services/hive_service.dart';
 
 /// Heurística simples: cardio se métricas contêm Distância ou Tempo.
 bool _isCardio(Exercise e) =>

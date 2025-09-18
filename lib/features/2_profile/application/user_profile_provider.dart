@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:seu_app/core/models/user_profile.dart';
-import 'package:seu_app/core/services/hive_service.dart';
+import 'package:fitapp/core/models/user_profile.dart';
+import 'package:fitapp/core/services/hive_service.dart';
 
 class UserProfileProvider with ChangeNotifier {
   final HiveService _hiveService;

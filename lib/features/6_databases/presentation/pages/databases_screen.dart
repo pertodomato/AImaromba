@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:seu_app/core/models/models.dart';
-import 'package:seu_app/core/services/hive_service.dart';
+import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/services/hive_service.dart';
 import 'package:hive/hive.dart';
 
 class DatabasesScreen extends StatelessWidget {

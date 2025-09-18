@@ -1,7 +1,7 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:seu_app/core/models/models.dart';
-import 'package:seu_app/core/models/workout_set_entry.dart';
-import 'package:seu_app/core/models/workout_session_log.dart';
+import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/models/workout_set_entry.dart';
+import 'package:fitapp/core/models/workout_session_log.dart';
 
 class HiveService {
   Future<void> init() async {

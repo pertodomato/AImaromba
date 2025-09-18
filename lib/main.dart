@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:seu_app/core/services/hive_service.dart';
-import 'package:seu_app/core/services/llm_service.dart';
-import 'package:seu_app/core/services/food_repository.dart';
-import 'package:seu_app/core/services/theme_service.dart';
-import 'package:seu_app/main_scaffold.dart';
+
+import 'package:fitapp/core/services/hive_service.dart';
+import 'package:fitapp/core/services/llm_service.dart';
+import 'package:fitapp/core/services/food_repository.dart';
+import 'package:fitapp/core/services/theme_service.dart';
+import 'package:fitapp/core/services/benchmarks_service.dart';
+import 'package:fitapp/main_scaffold.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +22,16 @@ void main() async {
   final themeService = ThemeService();
   await themeService.init();
 
+  // Evita tela branca silenciosa
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    // ignore: avoid_print
+    print('Flutter error: ${details.exceptionAsString()}');
+  };
+  ErrorWidget.builder = (d) => Material(
+        child: Center(child: Text('Erro: ${d.exception}')),
+      );
+
   runApp(
     MultiProvider(
       providers: [
@@ -27,6 +39,8 @@ void main() async {
         Provider<LLMService>.value(value: llmService),
         Provider<FoodRepository>.value(value: foodRepo),
         ChangeNotifierProvider<ThemeService>.value(value: themeService),
+        // Necessário para WorkoutsHubScreen
+        Provider(create: (_) => BenchmarksService()),
       ],
       child: const MyApp(),
     ),
@@ -43,6 +57,7 @@ class MyApp extends StatelessWidget {
     final theme = context.watch<ThemeService>();
 
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Fitness AI',
       themeMode: theme.themeMode,
       theme: ThemeData.light(),

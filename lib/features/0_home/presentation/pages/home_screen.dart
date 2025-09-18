@@ -3,16 +3,16 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:seu_app/core/models/models.dart';
-import 'package:seu_app/core/services/hive_service.dart';
-import 'package:seu_app/core/services/food_api_service.dart';
-import 'package:seu_app/core/services/food_repository.dart';
-import 'package:seu_app/core/services/llm_service.dart';
-import 'package:seu_app/core/utils/meal_ai_service.dart'; // <-- caminho corrigido
+import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/services/hive_service.dart';
+import 'package:fitapp/core/services/food_api_service.dart';
+import 'package:fitapp/core/services/food_repository.dart';
+import 'package:fitapp/core/services/llm_service.dart';
+import 'package:fitapp/core/utils/meal_ai_service.dart'; // <-- caminho corrigido
 
-import 'package:seu_app/features/common/scan_barcode_screen.dart';
-import 'package:seu_app/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
-import 'package:seu_app/features/7_settings/presentation/pages/settings_screen.dart';
+import 'package:fitapp/features/common/scan_barcode_screen.dart';
+import 'package:fitapp/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
+import 'package:fitapp/features/7_settings/presentation/pages/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

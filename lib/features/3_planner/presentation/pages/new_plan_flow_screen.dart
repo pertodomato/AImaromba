@@ -3,12 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-
-import 'package:seu_app/core/models/models.dart';
-import 'package:seu_app/core/services/llm_service.dart';
-import 'package:seu_app/core/services/hive_service.dart';
-import 'package:seu_app/core/utils/json_safety.dart';
-import 'package:seu_app/core/utils/muscle_validation.dart';
+import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/services/llm_service.dart';
+import 'package:fitapp/core/services/hive_service.dart';
+import 'package:fitapp/core/utils/json_safety.dart';
+import 'package:fitapp/core/utils/muscle_validation.dart';
+import 'package:hive/hive.dart';
 
 enum PlanStep { goal, questions, generating }
 
@@ -105,7 +105,7 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
       final routineStructure = await _generateRoutineStructure(llm, user, userAnswers);
 
       final routineData = routineStructure['routine'];
-      final daysToCreateData = List<Map<String, dynamic>>.from(routineStructure['days_to_create'] ?? []);
+      final daysToCreateData = List<Map<String, dynamic>>.from(routineStructure['days_to_create'] ?? const []);
 
       final dayBox = hive.getBox<WorkoutDay>('workout_days');
       final sessionBox = hive.getBox<WorkoutSession>('workout_sessions');
@@ -117,7 +117,7 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
       for (final dayData in daysToCreateData) {
         setState(() => _loadingMessage = "Detalhando dia '${dayData['name']}'...");
         final sessionsStructure = await _generateDayStructure(llm, dayData);
-        final sessionsToCreateData = List<Map<String, dynamic>>.from(sessionsStructure['sessions_to_create'] ?? []);
+        final sessionsToCreateData = List<Map<String, dynamic>>.from(sessionsStructure['sessions_to_create'] ?? const []);
         final reuseSessionNames = List<String>.from(sessionsStructure['reuse_sessions_by_name'] ?? const <String>[]);
 
         // Reaproveitar sessões existentes por nome
@@ -130,7 +130,7 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
         for (final sessionData in sessionsToCreateData) {
           setState(() => _loadingMessage = "Montando sessão '${sessionData['name']}'...");
           final exStructure = await _generateSessionStructure(llm, sessionData);
-          final exToCreateData = List<Map<String, dynamic>>.from(exStructure['exercises_to_create'] ?? []);
+          final exToCreateData = List<Map<String, dynamic>>.from(exStructure['exercises_to_create'] ?? const []);
           final reuseExNames = List<String>.from(exStructure['reuse_exercises_by_name'] ?? const <String>[]);
 
           final existingExercises = exBox.values.toList();
@@ -309,7 +309,7 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
     final dietStruct = await _generateDietStructure(llm, user, answers);
 
     final routineData = dietStruct['diet_routine'] ?? dietStruct['routine'];
-    final daysToCreate = List<Map<String, dynamic>>.from(dietStruct['days_to_create'] ?? []);
+    final daysToCreate = List<Map<String, dynamic>>.from(dietStruct['days_to_create'] ?? const []);
 
     final createdDays = <DietDay>[];
     for (final d in daysToCreate) {
@@ -483,4 +483,30 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
         );
     }
   }
+}
+
+/// Normaliza primários/secundários:
+/// - converte para IDs canônicos aceitos pelo mapa (ver muscle_validation.dart)
+/// - remove duplicados e sobreposição (secundários não repetem primários)
+/// - limita quantidade para evitar listas enormes vindas do LLM
+Map<String, List<String>> clampPrimarySecondary({
+  required List<String> primary,
+  required List<String> secondary,
+  int maxPrimary = 5,
+  int maxSecondary = 10,
+}) {
+  // toGroupIds() vem de muscle_validation.dart
+  final prim = toGroupIds(primary);
+  final sec = toGroupIds(secondary);
+
+  // remove interseção dos secundários
+  final cleanedSec = {...sec}..removeAll(prim);
+
+  final primList = prim.take(maxPrimary).toList();
+  final secList = cleanedSec.take(maxSecondary).toList();
+
+  return {
+    'primary': primList,
+    'secondary': secList,
+  };
 }

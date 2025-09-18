@@ -1,6 +1,6 @@
 // lib/core/utils/nutrition_math.dart
 import 'dart:math';
-import 'package:seu_app/core/models/user_profile.dart';
+import 'package:fitapp/core/models/user_profile.dart';
 
 class NutritionTargets {
   final double kcalTarget;

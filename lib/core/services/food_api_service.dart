@@ -2,7 +2,7 @@
 import 'dart:math';
 import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
-import 'package:seu_app/core/models/meal.dart';
+import 'package:fitapp/core/models/meal.dart';
 
 /// Consulta OpenFoodFacts e mantém cache curto em Hive ('_food_cache')
 class FoodApiService {

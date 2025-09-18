@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:collection/collection.dart';
-import 'package:seu_app/core/models/user_profile.dart';
-import 'package:seu_app/core/models/exercise.dart';
-import 'package:seu_app/core/models/workout_set_entry.dart';
-import 'package:seu_app/core/utils/performance_math.dart';
+import 'package:fitapp/core/models/user_profile.dart';
+import 'package:fitapp/core/models/exercise.dart';
+import 'package:fitapp/core/models/workout_set_entry.dart';
+import 'package:fitapp/core/utils/performance_math.dart';
 
 class BenchmarksResult {
   BenchmarksResult({required this.classIndex, required this.value, required this.percentile});

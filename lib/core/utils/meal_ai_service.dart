@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart' show rootBundle;
-import 'package:seu_app/core/models/meal.dart';
-import 'package:seu_app/core/services/llm_service.dart';
-import 'package:seu_app/core/utils/json_safety.dart';
+import 'package:fitapp/core/models/meal.dart';
+import 'package:fitapp/core/services/llm_service.dart';
+import 'package:fitapp/core/utils/json_safety.dart';
 import 'package:uuid/uuid.dart';
 
 class MealAIService {

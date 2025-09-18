@@ -6,7 +6,7 @@ import 'dart:typed_data';
 
 import 'package:google_generative_ai/google_generative_ai.dart' as gg;
 import 'package:dart_openai/dart_openai.dart' as oa;
-import 'package:seu_app/core/models/user_profile.dart';
+import 'package:fitapp/core/models/user_profile.dart';
 
 /// Contrato simples e estável
 abstract class LLMProvider {

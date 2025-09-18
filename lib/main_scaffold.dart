@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:seu_app/features/0_home/presentation/pages/home_screen.dart';
-import 'package:seu_app/features/3_planner/presentation/pages/planner_screen.dart';
-import 'package:seu_app/features/4_workouts/presentation/pages/workouts_hub_screen.dart';
-import 'package:seu_app/features/5_nutrition/presentation/pages/nutrition_hub_screen.dart';
-import 'package:seu_app/features/7_settings/presentation/pages/settings_screen.dart';
+import 'package:fitapp/features/0_home/presentation/pages/home_screen.dart';
+import 'package:fitapp/features/3_planner/presentation/pages/planner_screen.dart';
+import 'package:fitapp/features/4_workouts/presentation/pages/workouts_hub_screen.dart';
+import 'package:fitapp/features/5_nutrition/presentation/pages/nutrition_hub_screen.dart';
+import 'package:fitapp/features/7_settings/presentation/pages/settings_screen.dart';
 
 class MainScaffold extends StatefulWidget {
   const MainScaffold({super.key});

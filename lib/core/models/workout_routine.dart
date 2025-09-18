@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import 'package:seu_app/core/models/workout_day.dart';
+import 'package:fitapp/core/models/workout_day.dart';
 
 part 'workout_routine.g.dart';
 

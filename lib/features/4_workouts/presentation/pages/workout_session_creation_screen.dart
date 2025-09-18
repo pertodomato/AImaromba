@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:seu_app/core/models/exercise.dart';
-import 'package:seu_app/core/models/workout_session.dart';
-import 'package:seu_app/core/services/hive_service.dart';
-
+import 'package:fitapp/core/models/exercise.dart';
+import 'package:fitapp/core/models/workout_session.dart';
+import 'package:fitapp/core/services/hive_service.dart';
+import 'package:hive/hive.dart';
 class WorkoutSessionCreationScreen extends StatefulWidget {
   const WorkoutSessionCreationScreen({super.key});
   @override

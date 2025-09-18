@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:seu_app/core/models/user_profile.dart';
-import 'package:seu_app/core/services/hive_service.dart';
-import 'package:seu_app/core/services/llm_service.dart';
+import 'package:fitapp/core/models/user_profile.dart';
+import 'package:fitapp/core/services/hive_service.dart';
+import 'package:fitapp/core/services/llm_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});

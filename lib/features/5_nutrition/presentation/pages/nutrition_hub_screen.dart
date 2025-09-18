@@ -2,8 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:seu_app/core/models/models.dart';
-import 'package:seu_app/core/services/hive_service.dart';
+import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/services/hive_service.dart';
 
 class NutritionHubScreen extends StatelessWidget {
   const NutritionHubScreen({super.key});
