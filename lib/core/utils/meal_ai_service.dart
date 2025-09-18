@@ -3,7 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:fitapp/core/models/meal.dart' as core;
 import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/json_safety.dart';
-import 'package.uuid/uuid.dart';
+import 'package:uuid/uuid.dart';
 
 // Evita conflito de nomes com core/meal.dart
 import 'package:fitapp/core/models/meal_estimate.dart' as est;

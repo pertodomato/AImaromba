@@ -1,8 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:fitapp/features/common/photo_capture_ai_screen.dart';
+
 import 'package:fitapp/core/models/models.dart';
 import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/core/services/food_api_service.dart';
@@ -12,8 +13,9 @@ import 'package:fitapp/core/utils/meal_ai_service.dart';
 
 import 'package:fitapp/features/common/scan_barcode_screen.dart';
 import 'package:fitapp/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
-import 'package:fitapp/features/5_nutrition/presentation/pages/meal_details_screen.dart'; // MUDANÇA: Importar a nova tela
+import 'package:fitapp/features/5_nutrition/presentation/pages/meal_details_screen.dart';
 import 'package:fitapp/features/7_settings/presentation/pages/settings_screen.dart';
+import 'package:fitapp/features/3_planner/presentation/pages/new_plan_flow_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,14 +30,21 @@ class _HomeScreenState extends State<HomeScreen> {
   double _consumedKcal = 0;
   double _dailyGoalKcal = 2000;
 
+  final _kpiCtl = PageController();
+  int _kpiIndex = 0;
+
   @override
   void initState() {
     super.initState();
     _loadDashboard();
   }
 
-  // ... (o resto do arquivo até a função _collectMealAmountAndSave permanece igual)
-  
+  @override
+  void dispose() {
+    _kpiCtl.dispose();
+    super.dispose();
+  }
+
   void _loadDashboard() {
     final hive = context.read<HiveService>();
 
@@ -70,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _nextMeal = null;
     }
 
-    // Meta diária vinda do perfil (campo correto)
+    // Meta diária do perfil
     final profile = hive.getUserProfile();
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
 
@@ -79,9 +88,56 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startWorkout() {
     if (_nextSession == null) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => WorkoutInProgressScreen(session: _nextSession!)),
+    Navigator.push(context, MaterialPageRoute(builder: (_) => WorkoutInProgressScreen(session: _nextSession!)));
+  }
+
+  void _startWorkoutWith(WorkoutSession s) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => WorkoutInProgressScreen(session: s)));
+  }
+
+  Future<void> _showUpcomingWorkouts() async {
+    final hive = context.read<HiveService>();
+    final routines = hive.getBox<WorkoutRoutine>('workout_routines').values.toList();
+    if (routines.isEmpty || routines.first.days.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nenhuma rotina encontrada.')));
+      return;
+    }
+    final r = routines.first;
+    final days = r.days.toList();
+    final now = DateTime.now();
+
+    // próximos 10 “slots” seguindo o esquema da rotina
+    final items = <({DateTime date, WorkoutSession session, String dayName})>[];
+    for (int i = 0; i < min(10, days.length * 2); i++) {
+      final date = now.add(Duration(days: i));
+      final idx = date.difference(r.startDate).inDays % days.length;
+      final d = days[idx];
+      if (d.sessions.isEmpty) continue;
+      items.add((date: date, session: d.sessions.first, dayName: d.name));
+    }
+
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: ListView(
+          children: [
+            const ListTile(title: Text('Próximos treinos')),
+            for (final it in items)
+              ListTile(
+                leading: const Icon(Icons.fitness_center),
+                title: Text('${it.dayName} • ${it.session.name}'),
+                subtitle: Text(DateFormat('EEE, dd/MM').format(it.date)),
+                trailing: TextButton(
+                  child: const Text('Iniciar'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _startWorkoutWith(it.session);
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -122,24 +178,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 await _addMealByAIText();
               },
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_camera_front),
-              title: const Text('Adicionar Refeição com IA (foto)'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await Navigator.push(context, MaterialPageRoute(builder: (_) => const PhotoCaptureAIScreen()));
-                _loadDashboard();
-              },
-            ),
-            const Divider(),
-            ListTile(
-              leading: const Icon(Icons.monitor_weight),
-              title: const Text('Registrar Peso Corporal'),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await _addWeight();
-              },
-            ),
           ],
         ),
       ),
@@ -159,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (meal == null) {
       final api = FoodApiService();
-      final fromApi = await api.fetchFoodByBarcode(barcode); 
+      final fromApi = await api.fetchFoodByBarcode(barcode);
       if (fromApi != null) {
         await mealsBox.add(fromApi);
         meal = fromApi;
@@ -264,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final ai = MealAIService(llm);
               final meal = await ai.fromText(desc);
-              
+
               Navigator.pop(ctx);
               if (meal == null) {
                 if (!mounted) return;
@@ -274,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final hive = context.read<HiveService>();
               await hive.getBox<Meal>('meals').add(meal);
-              
+
               final newMealEntry = MealEntry(
                 id: const Uuid().v4(),
                 dateTime: DateTime.now(),
@@ -283,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 grams: grams,
               );
               await hive.getBox<MealEntry>('meal_entries').add(newMealEntry);
-              
+
               if (!mounted) return;
               Navigator.push(
                 context,
@@ -296,7 +334,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
 
   Future<void> _collectMealAmountAndSave(Meal meal) async {
     final gramsCtl = TextEditingController();
@@ -323,32 +360,211 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
               final hive = context.read<HiveService>();
-              
-              // MUDANÇA: Removida a duplicação. Criamos e salvamos apenas uma vez.
               final newMealEntry = MealEntry(
-                    id: const Uuid().v4(),
-                    dateTime: DateTime.now(),
-                    label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
-                    meal: meal,
-                    grams: grams,
-                  );
+                id: const Uuid().v4(),
+                dateTime: DateTime.now(),
+                label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
+                meal: meal,
+                grams: grams,
+              );
               await hive.getBox<MealEntry>('meal_entries').add(newMealEntry);
-              
-              Navigator.pop(ctx); // Fecha o dialog
-              
+              Navigator.pop(ctx);
               if (!mounted) return;
-
-              // Navega para a tela de detalhes
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => MealDetailsScreen(mealEntry: newMealEntry),
-                ),
+                MaterialPageRoute(builder: (_) => MealDetailsScreen(mealEntry: newMealEntry)),
               ).then((_) => _loadDashboard());
             },
             child: const Text('Salvar'),
           ),
         ],
+      ),
+    );
+  }
+
+  // ===== KPI helpers =====
+  double _monthCalories() {
+    final hive = context.read<HiveService>();
+    final now = DateTime.now();
+    final entries = hive.getBox<MealEntry>('meal_entries').values.where((e) =>
+        e.dateTime.year == now.year && e.dateTime.month == now.month);
+    return entries.fold(0.0, (s, e) => s + e.calories);
+  }
+
+  Map<DateTime, double> _dailyVolume({bool cardio = false}) {
+    final hive = context.read<HiveService>();
+    final sets = hive.getBox<WorkoutSetEntry>('workout_set_entries').values.toList();
+
+    final byDay = <DateTime, double>{};
+    for (final s in sets) {
+      final day = DateTime(s.timestamp.year, s.timestamp.month, s.timestamp.day);
+      double add = 0;
+      if (cardio) {
+        add = s.metrics['Distância'] ?? 0;
+      } else {
+        final w = s.metrics['Peso'] ?? 0;
+        final r = s.metrics['Repetições'] ?? 0;
+        add = w * r;
+      }
+      byDay.update(day, (v) => v + add, ifAbsent: () => add);
+    }
+    return byDay;
+  }
+
+  Widget _miniBars(Map<DateTime, double> data) {
+    if (data.isEmpty) return const Text('Sem dados');
+    final days = data.keys.toList()..sort();
+    final vals = days.map((d) => data[d]!).toList();
+    final maxV = vals.fold<double>(0, max);
+    return SizedBox(
+      height: 80,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final v in vals)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Container(height: maxV == 0 ? 2 : max(2, 70 * (v / maxV)), color: Colors.blueGrey),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dateFmt = DateFormat('dd/MM, HH:mm');
+    final progress = (_dailyGoalKcal > 0) ? (_consumedKcal / _dailyGoalKcal).clamp(0.0, 1.0) : 0.0;
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Resumo do Dia'),
+        actions: [
+          IconButton(icon: const Icon(Icons.settings), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()))),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: ListView(
+          children: [
+            // Top row: Próx treino | Próx refeição
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_nextSession != null ? 'Próximo Treino' : 'Nenhum treino agendado', style: Theme.of(context).textTheme.titleMedium),
+                          if (_nextSession != null) ...[
+                            const SizedBox(height: 4),
+                            Text('${_nextSession!.name}  •  Dia: $_nextSessionDayName'),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                ElevatedButton(onPressed: _startWorkout, child: const Text('Iniciar')),
+                                const SizedBox(width: 8),
+                                OutlinedButton(onPressed: _showUpcomingWorkouts, child: const Text('Próximos')),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Próxima Refeição', style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 4),
+                          Text(_nextMeal != null
+                              ? '${_nextMeal!.label} — ${_nextMeal!.meal.name}\n${dateFmt.format(_nextMeal!.dateTime)}'
+                              : 'Sem refeição registrada'),
+                          const SizedBox(height: 12),
+                          Row(children: [
+                            ElevatedButton(onPressed: _showAddMenu, child: const Text('Adicionar Refeição')),
+                            const SizedBox(width: 8),
+                            OutlinedButton(onPressed: _addWeight, child: const Text('Novo Peso')),
+                          ]),
+                          const Divider(height: 20),
+                          Text('Calorias hoje: ${_consumedKcal.toStringAsFixed(0)} / ${_dailyGoalKcal.toStringAsFixed(0)} kcal'),
+                          const SizedBox(height: 6),
+                          LinearProgressIndicator(value: progress),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Botão para planejar nova rotina
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Planejar nova rotina'),
+                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewPlanFlowScreen())),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Carrossel de evolução
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Evolução', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 160,
+                    child: PageView(
+                      controller: _kpiCtl,
+                      onPageChanged: (i) => setState(() => _kpiIndex = i),
+                      children: [
+                        _KpiCard(title: 'Cargas dos treinos', child: _miniBars(_dailyVolume())),
+                        _KpiCard(title: 'Evolução cardio (distância)', child: _miniBars(_dailyVolume(cardio: true))),
+                        _KpiCard(title: 'Evolução do peso', child: _WeightMiniChart()),
+                        _KpiCard(title: 'Calorias no mês', child: Text('${_monthCalories().toStringAsFixed(0)} kcal')),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Wrap(
+                      spacing: 6,
+                      children: List.generate(4, (i) => Icon(i == _kpiIndex ? Icons.circle : Icons.circle_outlined, size: 10)),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // “Mapa” simples de músculos mais treinados (lista percentual)
+            _TopMusclesCard(),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddMenu,
+        child: const Icon(Icons.add),
+        tooltip: 'Adicionar Refeição',
       ),
     );
   }
@@ -375,7 +591,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
               Navigator.pop(ctx);
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Peso registrado!')));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Peso registrado')));
             },
             child: const Text('Salvar'),
           ),
@@ -383,68 +599,120 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+/// Card simples com título
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({required this.title, required this.child});
+  final String title;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final dateFmt = DateFormat('dd/MM, HH:mm');
-    final progress = (_dailyGoalKcal > 0) ? (_consumedKcal / _dailyGoalKcal).clamp(0.0, 1.0) : 0.0;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Resumo do Dia'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-          ),
-        ],
+    return Card(
+      elevation: 0,
+      color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(title, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Expanded(child: Center(child: child)),
+        ]),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView(
-          children: [
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.fitness_center, color: Colors.blueAccent),
-                title: Text(_nextSession != null ? 'Próximo Treino: ${_nextSession!.name}' : 'Nenhum treino agendado'),
-                subtitle: Text(_nextSession != null ? 'Dia: $_nextSessionDayName' : ''),
-                trailing: ElevatedButton(
-                  onPressed: _nextSession == null ? null : _startWorkout,
-                  child: const Text('Começar'),
+    );
+  }
+}
+
+/// Mini “linha” do peso corporal
+class _WeightMiniChart extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final hive = context.read<HiveService>();
+    final data = hive.getBox<WeightEntry>('weight_entries').values.toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    if (data.isEmpty) return const Text('Sem dados');
+    final minW = data.map((e) => e.weightKg).reduce(min);
+    final maxW = data.map((e) => e.weightKg).reduce(max);
+    final span = (maxW - minW).abs() < 0.001 ? 1.0 : (maxW - minW);
+    return SizedBox(
+      height: 80,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final e in data)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: Container(
+                  height: max(2, 70 * ((e.weightKg - minW) / span)),
+                  color: Colors.teal,
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.restaurant, color: Colors.orangeAccent),
-                title: Text(_nextMeal != null ? 'Próxima Refeição: ${_nextMeal!.label}' : 'Sem refeição registrada'),
-                subtitle: Text(_nextMeal != null ? '${_nextMeal!.meal.name} — ${dateFmt.format(_nextMeal!.dateTime)}' : ''),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('Metas Calóricas', style: Theme.of(context).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    Text('Consumido: ${_consumedKcal.toStringAsFixed(0)} kcal'),
-                    Text('Meta: ${_dailyGoalKcal.toStringAsFixed(0)} kcal'),
-                  ]),
-                  const SizedBox(height: 8),
-                  LinearProgressIndicator(value: progress),
-                ]),
-              ),
-            ),
-          ],
-        ),
+        ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddMenu,
-        child: const Icon(Icons.add),
-        tooltip: 'Adicionar Refeição/Peso',
+    );
+  }
+}
+
+/// Lista dos músculos mais treinados no mês (proxy do “mapa”)
+class _TopMusclesCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final hive = context.read<HiveService>();
+    final sets = hive.getBox<WorkoutSetEntry>('workout_set_entries').values.toList();
+    final exBox = hive.getBox<Exercise>('exercises');
+
+    final now = DateTime.now();
+    final monthSets = sets.where((s) => s.timestamp.year == now.year && s.timestamp.month == now.month);
+
+    final volumeByMuscle = <String, double>{};
+    for (final s in monthSets) {
+      // busca segura do exercício sem retornar null em orElse
+      final matches = exBox.values.where((e) => e.id == s.exerciseId);
+      final Exercise? ex = matches.isNotEmpty ? matches.first : null;
+      if (ex == null) continue;
+
+      final vol = (s.metrics['Peso'] ?? 0) * (s.metrics['Repetições'] ?? 0);
+      for (final m in ex.primaryMuscles) {
+        volumeByMuscle.update(m, (v) => v + vol, ifAbsent: () => vol);
+      }
+    }
+
+    final entries = volumeByMuscle.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final top = entries.take(8).toList();
+    final total = top.fold<double>(0, (s, e) => s + e.value);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Músculos mais treinados no mês', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          if (top.isEmpty)
+            const Text('Sem dados')
+          else
+            Column(
+              children: [
+                for (final e in top)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        SizedBox(width: 120, child: Text(e.key)),
+                        Expanded(
+                          child: LinearProgressIndicator(value: total == 0 ? 0 : (e.value / total)),
+                        ),
+                        const SizedBox(width: 8),
+                        Text('${total == 0 ? 0 : (100 * e.value / total).round()}%'),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+        ]),
       ),
     );
   }
