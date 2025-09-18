@@ -1,6 +1,8 @@
 // lib/features/common/photo_capture_ai_screen.dart
+
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -11,6 +13,7 @@ import 'package:fitapp/core/models/meal_entry.dart';
 import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/meal_ai_service.dart';
+import 'package:fitapp/features/5_nutrition/presentation/pages/meal_details_screen.dart';
 
 class PhotoCaptureAIScreen extends StatefulWidget {
   const PhotoCaptureAIScreen({super.key});
@@ -21,17 +24,18 @@ class PhotoCaptureAIScreen extends StatefulWidget {
 
 class _PhotoCaptureAIScreenState extends State<PhotoCaptureAIScreen> {
   bool _busy = false;
-  File? _img;
+  XFile? _pickedFile;
 
   Future<void> _pick(ImageSource src) async {
     final picker = ImagePicker();
-    final x = await picker.pickImage(source: src, imageQuality: 90);
-    if (x == null) return;
-    setState(() => _img = File(x.path));
-    await _process();
+    final xfile = await picker.pickImage(source: src, imageQuality: 90, maxWidth: 1024);
+    if (xfile == null) return;
+
+    setState(() => _pickedFile = xfile);
+    await _process(xfile);
   }
 
-  Future<void> _process() async {
+  Future<void> _process(XFile pickedFile) async {
     final llm = context.read<LLMService>();
     if (!llm.isAvailable()) {
       if (!mounted) return;
@@ -40,53 +44,67 @@ class _PhotoCaptureAIScreenState extends State<PhotoCaptureAIScreen> {
     }
 
     setState(() => _busy = true);
+
     try {
-      final bytes = await _img!.readAsBytes();
+      final bytes = await pickedFile.readAsBytes();
       final b64 = base64Encode(bytes);
 
       final ai = MealAIService(llm);
-      final result = await ai.fromImageAuto([b64], extraText: 'Estime nome do prato e peso total em gramas.');
+      // MUDANÇA: Chamando o novo método que retorna a tupla
+      final resultTuple = await ai.fromImageAutoWithRawResponse([b64], extraText: 'Estime nome do prato e peso total em gramas.');
+      
+      final result = resultTuple?.result;
+      final rawAiResponse = resultTuple?.rawResponse ?? '{"error":"No response from AI"}';
+      
       if (result == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não conseguiu entender a foto.')));
         return;
       }
 
-      // Salva alimento, depois cria entrada com gramas estimadas.
       final hive = context.read<HiveService>();
       final mealsBox = hive.getBox<Meal>('meals');
 
-      // Evita duplicar por nome + macros (heurística simples)
       Meal? toUse;
       try {
         toUse = mealsBox.values.firstWhere((m) =>
             m.name.toLowerCase() == result.meal.name.toLowerCase() &&
-            m.caloriesPer100g == result.meal.caloriesPer100g &&
-            m.proteinPer100g == result.meal.proteinPer100g &&
-            m.carbsPer100g == result.meal.carbsPer100g &&
-            m.fatPer100g == result.meal.fatPer100g);
+            (m.caloriesPer100g - result.meal.caloriesPer100g).abs() < 1 &&
+            (m.proteinPer100g - result.meal.proteinPer100g).abs() < 1);
       } catch (_) {
         toUse = null;
       }
 
       toUse ??= result.meal;
-      if (toUse == result.meal) {
-        await mealsBox.add(toUse);
+
+      // MUDANÇA: Adicionada verificação de nulidade para corrigir os erros
+      if (toUse != null) {
+        if (!toUse.isInBox) {
+          await mealsBox.add(toUse);
+        }
+
+        final newMealEntry = MealEntry(
+              id: const Uuid().v4(),
+              dateTime: DateTime.now(),
+              label: 'Refeição (IA Foto)',
+              meal: toUse, // Agora 'toUse' é garantido como não-nulo aqui dentro
+              grams: result.grmsClamp(),
+            );
+        await hive.getBox<MealEntry>('meal_entries').add(newMealEntry);
+
+        if (!mounted) return;
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MealDetailsScreen(
+              mealEntry: newMealEntry,
+              imagePath: pickedFile.path,
+              aiResponseJson: rawAiResponse,
+            ),
+          ),
+        );
       }
-
-      await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
-            id: const Uuid().v4(),
-            dateTime: DateTime.now(),
-            label: 'Refeição',
-            meal: toUse,
-            grams: result.grmsClamp(),
-          ));
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Refeição registrada: ${toUse.name} • ${result.grmsClamp().toStringAsFixed(0)} g')),
-      );
-      Navigator.pop(context); // volta pra Home; ela recarrega o dashboard
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
@@ -97,7 +115,7 @@ class _PhotoCaptureAIScreenState extends State<PhotoCaptureAIScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final img = _img;
+    final pickedFile = _pickedFile;
     return Scaffold(
       appBar: AppBar(title: const Text('Adicionar com IA (foto)')),
       body: Center(
@@ -115,10 +133,12 @@ class _PhotoCaptureAIScreenState extends State<PhotoCaptureAIScreen> {
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (img != null)
+                    if (pickedFile != null)
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.file(img, height: 240, fit: BoxFit.cover),
+                        child: kIsWeb
+                            ? Image.network(pickedFile.path, height: 240, fit: BoxFit.cover)
+                            : Image.file(File(pickedFile.path), height: 240, fit: BoxFit.cover),
                       )
                     else
                       const Icon(Icons.photo_size_select_actual, size: 96),
@@ -147,7 +167,6 @@ class _PhotoCaptureAIScreenState extends State<PhotoCaptureAIScreen> {
   }
 }
 
-// Pequena extensão para garantir faixa razoável de 80–1200 g
 extension on ({Meal meal, double grams}) {
   double grmsClamp() => grams.clamp(80.0, 1200.0);
 }

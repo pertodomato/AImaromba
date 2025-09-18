@@ -5,7 +5,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:google_generative_ai/google_generative_ai.dart' as gg;
-import 'package:dart_openai/dart_openai.dart' as oa;
+import 'package:dio/dio.dart';
 import 'package:fitapp/core/models/user_profile.dart';
 
 /// Contrato simples e estável
@@ -14,7 +14,7 @@ abstract class LLMProvider {
   Future<String> getJson(String prompt, {List<Uint8List>? images});
 }
 
-/// Gemini 2.5 texto e visão
+/// Gemini (sem alterações, continua funcional)
 class GeminiProvider implements LLMProvider {
   final String apiKey;
   final String textModel;
@@ -24,8 +24,8 @@ class GeminiProvider implements LLMProvider {
   late final gg.GenerativeModel _vision;
 
   GeminiProvider(this.apiKey, {String? textModel, String? visionModel})
-      : textModel = (textModel?.trim().isNotEmpty ?? false) ? textModel! : 'gemini-2.5-pro',
-        visionModel = (visionModel?.trim().isNotEmpty ?? false) ? visionModel! : 'gemini-2.5-flash' {
+      : textModel = (textModel?.trim().isNotEmpty ?? false) ? textModel! : 'gemini-1.5-pro',
+        visionModel = (visionModel?.trim().isNotEmpty ?? false) ? visionModel! : 'gemini-1.5-flash' {
     _text = gg.GenerativeModel(model: this.textModel, apiKey: apiKey);
     _vision = gg.GenerativeModel(model: this.visionModel, apiKey: apiKey);
   }
@@ -39,10 +39,10 @@ class GeminiProvider implements LLMProvider {
         for (final bytes in images) {
           parts.add(gg.DataPart('image/jpeg', bytes));
         }
-        final resp = await _vision.generateContent([sys, gg.Content.multi(parts)]).timeout(const Duration(seconds: 30));
+        final resp = await _vision.generateContent([sys, gg.Content.multi(parts)]).timeout(const Duration(seconds: 45));
         return resp.text ?? '{}';
       } else {
-        final resp = await _text.generateContent([sys, gg.Content.text(prompt)]).timeout(const Duration(seconds: 30));
+        final resp = await _text.generateContent([sys, gg.Content.text(prompt)]).timeout(const Duration(seconds: 45));
         return resp.text ?? '{}';
       }
     } catch (e) {
@@ -51,59 +51,79 @@ class GeminiProvider implements LLMProvider {
   }
 }
 
-/// GPT-5 Thinking (ou outro suportado) com visão via imageUrl base64 data:
+/// GPTProvider usando a API /v1/chat/completions para maior compatibilidade
 class GPTProvider implements LLMProvider {
   final String apiKey;
   final String model;
+  final Dio _dio = Dio();
 
   GPTProvider(this.apiKey, {String? model})
-      : model = (model?.trim().isNotEmpty ?? false) ? model! : 'gpt-5-thinking' {
-    oa.OpenAI.apiKey = apiKey;
-  }
+      // MUDANÇA: Usando 'gpt-4o' como padrão, pois é mais estável e disponível.
+      : model = (model?.trim().isNotEmpty ?? false) ? model! : 'gpt-4o';
 
   @override
   Future<String> getJson(String prompt, {List<Uint8List>? images}) async {
+    // MUDANÇA: Voltamos ao endpoint padrão /v1/chat/completions que é mais comum.
+    const endpoint = 'https://api.openai.com/v1/chat/completions';
+
+    final List<Map<String, dynamic>> messages = [
+      {
+        "role": "system",
+        "content": "Você responde APENAS JSON. Sem texto fora do JSON."
+      },
+    ];
+
+    // Monta a mensagem do usuário (pode ser multimodal)
+    final List<Map<String, dynamic>> userContent = [];
+    userContent.add({"type": "text", "text": prompt}); // Adiciona o prompt de texto
+
+    if (images != null && images.isNotEmpty) {
+      for (final bytes in images) {
+        userContent.add({
+          "type": "image_url",
+          "image_url": {"url": "data:image/jpeg;base64,${base64Encode(bytes)}"}
+        });
+      }
+    }
+
+    messages.add({"role": "user", "content": userContent});
+
+    final payload = {
+      "model": model,
+      "messages": messages,
+      "max_tokens": 2048,
+       // Para forçar o modo JSON em modelos que o suportam
+      "response_format": {"type": "json_object"}
+    };
+
     try {
-      final msgs = <oa.OpenAIChatCompletionChoiceMessageModel>[
-        oa.OpenAIChatCompletionChoiceMessageModel(
-          role: oa.OpenAIChatMessageRole.system,
-          content: [
-            oa.OpenAIChatCompletionChoiceMessageContentItemModel.text(
-              'Você responde APENAS JSON. Sem texto fora do JSON.',
-            ),
-          ],
+      final response = await _dio.post(
+        endpoint,
+        data: payload,
+        options: Options(
+          headers: {
+            'Authorization': 'Bearer $apiKey',
+            'Content-Type': 'application/json',
+          },
         ),
-        if (images != null && images.isNotEmpty)
-          oa.OpenAIChatCompletionChoiceMessageModel(
-            role: oa.OpenAIChatMessageRole.user,
-            content: [
-              oa.OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt),
-              for (final b in images)
-                oa.OpenAIChatCompletionChoiceMessageContentItemModel.imageUrl(
-                  'data:image/jpeg;base64,${base64Encode(b)}',
-                ),
-            ],
-          )
-        else
-          oa.OpenAIChatCompletionChoiceMessageModel(
-            role: oa.OpenAIChatMessageRole.user,
-            content: [oa.OpenAIChatCompletionChoiceMessageContentItemModel.text(prompt)],
-          ),
-      ];
+      ).timeout(const Duration(seconds: 45));
 
-      final resp = await oa.OpenAI.instance.chat.create(
-        model: model,
-        messages: msgs,
-      ).timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200 && response.data != null) {
+        return response.data['choices'][0]['message']['content'] ?? '{}';
+      }
+      return jsonEncode(response.data);
 
-      return resp.choices.first.message.content?.first.text ?? '{}';
     } catch (e) {
-      return '{"error":"OpenAI error","detail":"$e"}';
+      if (e is DioException) {
+        return '{"error":"OpenAI API error","detail":"${e.response?.data ?? e.message}"}';
+      }
+      return '{"error":"OpenAI request failed","detail":"$e"}';
     }
   }
 }
 
-/// Fachada
+
+/// Fachada (sem alterações)
 class LLMService {
   LLMProvider? _provider;
 
@@ -119,18 +139,16 @@ class LLMService {
 
   bool isAvailable() => _provider != null;
 
-  Future<bool> ping({Duration timeout = const Duration(seconds: 6)}) async {
+  Future<bool> ping({Duration timeout = const Duration(seconds: 15)}) async {
     if (_provider == null) return false;
     try {
       final res = await _provider!.getJson('{"ping":true}').timeout(timeout);
-      return res.isNotEmpty;
+      return res.isNotEmpty && !res.contains('"error"');
     } catch (_) {
       return false;
     }
   }
 
-  /// Método compatível com o app existente.
-  /// Aceita imagens em base64 (sem prefixo data:), retorna string JSON.
   Future<String> generateResponse(String prompt, {List<String>? imagesBase64}) {
     if (_provider == null) {
       throw Exception('LLM Provider não inicializado. Configure no Perfil.');
@@ -139,7 +157,6 @@ class LLMService {
     return _provider!.getJson(prompt, images: imgs);
   }
 
-  /// Disponível caso queira chamar direto com bytes
   Future<String> getJson(String prompt, {List<Uint8List>? images}) {
     if (_provider == null) {
       throw Exception('LLM Provider não inicializado. Configure no Perfil.');

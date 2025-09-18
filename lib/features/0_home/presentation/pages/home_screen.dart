@@ -12,6 +12,7 @@ import 'package:fitapp/core/utils/meal_ai_service.dart';
 
 import 'package:fitapp/features/common/scan_barcode_screen.dart';
 import 'package:fitapp/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
+import 'package:fitapp/features/5_nutrition/presentation/pages/meal_details_screen.dart'; // MUDANÇA: Importar a nova tela
 import 'package:fitapp/features/7_settings/presentation/pages/settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadDashboard();
   }
 
+  // ... (o resto do arquivo até a função _collectMealAmountAndSave permanece igual)
+  
   void _loadDashboard() {
     final hive = context.read<HiveService>();
 
@@ -71,7 +74,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final profile = hive.getUserProfile();
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
 
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   void _startWorkout() {
@@ -156,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (meal == null) {
       final api = FoodApiService();
-      final fromApi = await api.fetchFoodByBarcode(barcode); // <-- assinatura correta
+      final fromApi = await api.fetchFoodByBarcode(barcode); 
       if (fromApi != null) {
         await mealsBox.add(fromApi);
         meal = fromApi;
@@ -261,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final ai = MealAIService(llm);
               final meal = await ai.fromText(desc);
-
+              
               Navigator.pop(ctx);
               if (meal == null) {
                 if (!mounted) return;
@@ -271,16 +274,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final hive = context.read<HiveService>();
               await hive.getBox<Meal>('meals').add(meal);
-              await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
+              
+              final newMealEntry = MealEntry(
                 id: const Uuid().v4(),
                 dateTime: DateTime.now(),
                 label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
                 meal: meal,
                 grams: grams,
-              ));
-              _loadDashboard();
+              );
+              await hive.getBox<MealEntry>('meal_entries').add(newMealEntry);
+              
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição registrada via IA.')));
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => MealDetailsScreen(mealEntry: newMealEntry)),
+              ).then((_) => _loadDashboard());
             },
             child: const Text('Criar'),
           ),
@@ -288,6 +296,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
 
   Future<void> _collectMealAmountAndSave(Meal meal) async {
     final gramsCtl = TextEditingController();
@@ -314,17 +323,28 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
               final hive = context.read<HiveService>();
-              await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
+              
+              // MUDANÇA: Removida a duplicação. Criamos e salvamos apenas uma vez.
+              final newMealEntry = MealEntry(
                     id: const Uuid().v4(),
                     dateTime: DateTime.now(),
                     label: labelCtl.text.isEmpty ? 'Refeição' : labelCtl.text.trim(),
                     meal: meal,
                     grams: grams,
-                  ));
-              Navigator.pop(ctx);
-              _loadDashboard();
+                  );
+              await hive.getBox<MealEntry>('meal_entries').add(newMealEntry);
+              
+              Navigator.pop(ctx); // Fecha o dialog
+              
               if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refeição registrado!')));
+
+              // Navega para a tela de detalhes
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MealDetailsScreen(mealEntry: newMealEntry),
+                ),
+              ).then((_) => _loadDashboard());
             },
             child: const Text('Salvar'),
           ),
@@ -367,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFmt = DateFormat('dd/MM, HH:mm');
-    final progress = (_consumedKcal / _dailyGoalKcal).clamp(0.0, 1.0);
+    final progress = (_dailyGoalKcal > 0) ? (_consumedKcal / _dailyGoalKcal).clamp(0.0, 1.0) : 0.0;
 
     return Scaffold(
       appBar: AppBar(

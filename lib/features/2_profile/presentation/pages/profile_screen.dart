@@ -99,14 +99,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  // MUDANÇA: Função de teste atualizada para imprimir o erro detalhado
   Future<void> _checkLLM() async {
     setState(() => _checking = true);
-    final ok = await context.read<LLMService>().ping();
-    setState(() {
-      _connected = ok;
-      _checking = false;
-    });
+    
+    // Força a reinicialização do serviço com os dados atuais dos campos de texto
+    final tempProfile = UserProfile(
+      geminiApiKey: _geminiApiKeyController.text.trim(),
+      gptApiKey: _gptApiKeyController.text.trim(),
+      selectedLlm: _selectedLlmProvider,
+    );
+    final llmService = context.read<LLMService>();
+    llmService.initialize(tempProfile);
+
+    final rawResponse = await llmService.getJson('{"ping":true}');
+    
+    // Imprime a resposta completa da API no console para diagnóstico
+    print('---- RESPOSTA DO TESTE DE PING ----\n$rawResponse\n---------------------------------');
+
+    final ok = rawResponse.isNotEmpty && !rawResponse.contains('"error"');
+    
+    if (mounted) {
+      setState(() {
+        _connected = ok;
+        _checking = false;
+      });
+    }
+    // Restaura o serviço com os dados salvos do perfil
+    llmService.initialize(context.read<HiveService>().getUserProfile());
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -120,8 +142,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Meu Perfil'),
         actions: [
-          IconButton(icon: const Icon(Icons.save), onPressed: _saveProfile),
-          IconButton(icon: const Icon(Icons.power), onPressed: _checkLLM, tooltip: 'Testar LLM'),
+          IconButton(icon: const Icon(Icons.save), onPressed: _saveProfile, tooltip: 'Salvar Perfil'),
+          IconButton(icon: const Icon(Icons.power), onPressed: _checkLLM, tooltip: 'Testar Conexão LLM'),
         ],
       ),
       body: SingleChildScrollView(
