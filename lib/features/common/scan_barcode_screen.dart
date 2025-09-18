@@ -1,7 +1,4 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 class ScanBarcodeScreen extends StatefulWidget {
@@ -11,57 +8,48 @@ class ScanBarcodeScreen extends StatefulWidget {
 }
 
 class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
+  final MobileScannerController _controller = MobileScannerController(
+    detectionSpeed: DetectionSpeed.normal,
+    facing: CameraFacing.back,
+    torchEnabled: false,
+  );
   bool _done = false;
 
   @override
-  Widget build(BuildContext context) {
-    final body = kIsWeb
-        ? _WebFallback(onResult: _finishWith)
-        : MobileScanner(
-            onDetect: (capture) {
-              if (_done) return;
-              final barcodes = capture.barcodes;
-              if (barcodes.isNotEmpty) {
-                final raw = barcodes.first.rawValue;
-                if (raw != null && raw.isNotEmpty) {
-                  _finishWith(raw);
-                }
-              }
-            },
-          );
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Escanear Código')),
-      body: body,
-    );
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
-  void _finishWith(String value) {
+  void _onDetect(BarcodeCapture cap) {
     if (_done) return;
+    final codes = cap.barcodes;
+    if (codes.isEmpty) return;
+    final raw = codes.first.rawValue;
+    if (raw == null || raw.trim().isEmpty) return;
     _done = true;
-    Navigator.pop(context, value);
+    Navigator.of(context).pop(raw.trim());
   }
-}
-
-class _WebFallback extends StatelessWidget {
-  const _WebFallback({required this.onResult});
-  final void Function(String) onResult;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ElevatedButton.icon(
-        icon: const Icon(Icons.upload),
-        label: const Text('Enviar imagem do código (web)'),
-        onPressed: () async {
-          final picker = ImagePicker();
-          final x = await picker.pickImage(source: ImageSource.gallery);
-          if (x == null) return;
-
-          // Fallback: devolve "file://" apenas para retornar ao chamador,
-          // que pode usar IA de OCR/Barcode se desejar.
-          onResult('file://${x.name}');
-        },
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Escanear Código de Barras'),
+        actions: [
+          IconButton(
+            onPressed: () => _controller.toggleTorch(),
+            icon: const Icon(Icons.flash_on),
+          ),
+          IconButton(
+            onPressed: () => _controller.switchCamera(),
+            icon: const Icon(Icons.cameraswitch),
+          ),
+        ],
+      ),
+      body: MobileScanner(
+        controller: _controller,
+        onDetect: _onDetect,
       ),
     );
   }

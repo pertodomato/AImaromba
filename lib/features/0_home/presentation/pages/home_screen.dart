@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-
+import 'package:fitapp/features/common/photo_capture_ai_screen.dart';
 import 'package:fitapp/core/models/models.dart';
 import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/core/services/food_api_service.dart';
@@ -117,6 +117,15 @@ class _HomeScreenState extends State<HomeScreen> {
               onTap: () async {
                 Navigator.pop(ctx);
                 await _addMealByAIText();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_front),
+              title: const Text('Adicionar Refeição com IA (foto)'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const PhotoCaptureAIScreen()));
+                _loadDashboard();
               },
             ),
             const Divider(),

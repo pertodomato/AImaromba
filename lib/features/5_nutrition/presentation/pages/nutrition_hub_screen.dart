@@ -1,128 +1,269 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:fitapp/core/models/models.dart';
+import 'package:uuid/uuid.dart';
+
+import 'package:fitapp/core/models/meal.dart';
+import 'package:fitapp/core/models/meal_entry.dart';
+import 'package:fitapp/core/services/food_api_service.dart';
+import 'package:fitapp/core/services/food_repository.dart';
 import 'package:fitapp/core/services/hive_service.dart';
+import 'package:fitapp/core/services/llm_service.dart';
+import 'package:fitapp/core/utils/meal_ai_service.dart';
+import 'package:fitapp/features/common/scan_barcode_screen.dart';
+import 'package:fitapp/features/common/photo_capture_ai_screen.dart';
 
-class NutritionHubScreen extends StatelessWidget {
+class NutritionHubScreen extends StatefulWidget {
   const NutritionHubScreen({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    final hive = context.watch<HiveService>();
-    final mealEntries = hive.getBox<MealEntry>('meal_entries').values.toList();
-    final weightEntries = hive.getBox<WeightEntry>('weight_entries').values.toList()..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-    final profile = hive.getUserProfile();
+  State<NutritionHubScreen> createState() => _NutritionHubScreenState();
+}
 
-    // Hoje
+class _NutritionHubScreenState extends State<NutritionHubScreen> {
+  late List<MealEntry> _todays;
+  double _kcal = 0;
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() {
+    final hive = context.read<HiveService>();
+    final entries = hive.getBox<MealEntry>('meal_entries').values.toList()
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
     final now = DateTime.now();
-    final todayMeals = mealEntries.where((e) => _isSameDay(e.dateTime, now)).toList();
-    final totalKcal = todayMeals.fold(0.0, (s, e) => s + e.calories);
-    final totalProt = todayMeals.fold(0.0, (s, e) => s + e.protein);
-    final totalCarb = todayMeals.fold(0.0, (s, e) => s + e.carbs);
-    final totalFat = todayMeals.fold(0.0, (s, e) => s + e.fat);
+    _todays = entries.where((e) =>
+      e.dateTime.year == now.year && e.dateTime.month == now.month && e.dateTime.day == now.day).toList();
+    _kcal = _todays.fold(0.0, (s, e) => s + e.calories);
+    setState(() {});
+  }
 
-    // MTD
-    final firstOfMonth = DateTime(now.year, now.month, 1);
-    final daysPassed = now.day;
-    final mtdMeals = mealEntries.where((e) => e.dateTime.isAfter(firstOfMonth.subtract(const Duration(seconds: 1))) && e.dateTime.isBefore(now.add(const Duration(days: 1)))).toList();
-    final mtdKcal = mtdMeals.fold(0.0, (s, e) => s + e.calories);
-    final mtdProt = mtdMeals.fold(0.0, (s, e) => s + e.protein);
+  Future<void> _addByBarcode() async {
+    final barcode = await Navigator.push<String?>(context, MaterialPageRoute(builder: (_) => const ScanBarcodeScreen()));
+    if (barcode == null) return;
+    final hive = context.read<HiveService>();
+    final mealsBox = hive.getBox<Meal>('meals');
 
-    final dailyKcalGoal = (profile.dailyKcalGoal ?? 2000).toDouble();
-    final dailyProtGoal = (profile.dailyProteinGoal ?? 120).toDouble();
-    final targetKcalMTD = dailyKcalGoal * daysPassed;
-    final targetProtMTD = dailyProtGoal * daysPassed;
+    Meal? meal = mealsBox.values.where((m) => m.id == barcode).cast<Meal?>().firstOrNull;
+    meal ??= await FoodApiService().fetchFoodByBarcode(barcode);
 
-    final kcalOnTrack = mtdKcal <= targetKcalMTD * 1.05 && mtdKcal >= targetKcalMTD * 0.95;
-    final protOnTrack = mtdProt >= targetProtMTD * 0.9;
+    if (meal == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alimento não encontrado.')));
+      return;
+    }
+    if (!mealsBox.values.any((m) => m.id == meal!.id)) await mealsBox.add(meal);
 
-    // Pizza de macros
-    final sumMacros = (totalProt + totalCarb + totalFat);
-    final sections = sumMacros == 0
-        ? <PieChartSectionData>[]
-        : [
-            PieChartSectionData(value: totalCarb, title: '${(totalCarb / sumMacros * 100).toStringAsFixed(0)}% Carb'),
-            PieChartSectionData(value: totalProt, title: '${(totalProt / sumMacros * 100).toStringAsFixed(0)}% Prot'),
-            PieChartSectionData(value: totalFat, title: '${(totalFat / sumMacros * 100).toStringAsFixed(0)}% Gord'),
-          ];
+    await _collectAndSave(meal);
+  }
 
-    // Peso
-    final spots = weightEntries.isEmpty
-        ? <FlSpot>[]
-        : List<FlSpot>.generate(weightEntries.length, (i) => FlSpot(i.toDouble(), weightEntries[i].weightKg));
+  Future<void> _addByTaco() async {
+    final repo = context.read<FoodRepository>();
+    final hive = context.read<HiveService>();
+    final mealsBox = hive.getBox<Meal>('meals');
 
-    final dateFmt = DateFormat('dd/MM HH:mm');
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Central de Nutrição')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text('Macros de Hoje (kcal: ${totalKcal.toStringAsFixed(0)})', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 220,
-            child: sections.isEmpty ? const Center(child: Text('Sem refeições hoje')) : PieChart(PieChartData(sections: sections)),
+    final controller = TextEditingController();
+    final labelCtl = TextEditingController(text: 'Refeição');
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Pesquisar alimento (TACO)'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: controller, decoration: const InputDecoration(hintText: 'Ex.: Peito de frango')),
+            const SizedBox(height: 8),
+            TextField(controller: labelCtl, decoration: const InputDecoration(labelText: 'Rótulo')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              final q = controller.text.trim();
+              Navigator.pop(ctx);
+              final res = repo.searchByName(q);
+              if (res.isEmpty) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Não encontrado no TACO.')));
+                return;
+              }
+              final meal = res.first;
+              if (!mealsBox.values.any((m) => m.id == meal.id)) await mealsBox.add(meal);
+              await _collectAndSave(meal, presetLabel: labelCtl.text.trim());
+            },
+            child: const Text('Ok'),
           ),
-          const SizedBox(height: 24),
-          Text('Progresso do Peso', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 220,
-            child: spots.isEmpty
-                ? const Center(child: Text('Sem registros de peso'))
-                : LineChart(
-                    LineChartData(
-                      gridData: const FlGridData(show: false),
-                      titlesData: const FlTitlesData(show: false),
-                      borderData: FlBorderData(show: false),
-                      lineBarsData: [LineChartBarData(spots: spots, isCurved: true, barWidth: 4)],
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 24),
-          Text('MTD vs Meta', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: Icon(kcalOnTrack ? Icons.check_circle : Icons.error, color: kcalOnTrack ? Colors.green : Colors.amber),
-              title: const Text('Calorias no mês'),
-              subtitle: Text('Consumido: ${mtdKcal.toStringAsFixed(0)} / Alvo: ${targetKcalMTD.toStringAsFixed(0)}'),
-            ),
-          ),
-          Card(
-            child: ListTile(
-              leading: Icon(protOnTrack ? Icons.check_circle : Icons.error, color: protOnTrack ? Colors.green : Colors.amber),
-              title: const Text('Proteína no mês'),
-              subtitle: Text('Consumido: ${mtdProt.toStringAsFixed(0)}g / Alvo: ${targetProtMTD.toStringAsFixed(0)}g'),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Text('Refeições Recentes', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          if (mealEntries.isEmpty)
-            const Card(child: ListTile(title: Text('Nenhuma refeição registrada.')))
-          else
-            ...mealEntries.reversed.take(10).map((e) => Card(
-                  child: ListTile(
-                    leading: const Icon(Icons.restaurant),
-                    title: Text('${e.label} — ${e.meal.name}'),
-                    subtitle: Text(dateFmt.format(e.dateTime)),
-                    trailing: Text('${e.calories.toStringAsFixed(0)} kcal'),
-                  ),
-                )),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Use o + na Home para registrar.')));
-        },
-        child: const Icon(Icons.add),
       ),
     );
   }
 
-  bool _isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  Future<void> _addByAIText() async {
+    final descCtl = TextEditingController();
+    final gramsCtl = TextEditingController();
+    final labelCtl = TextEditingController(text: 'Refeição');
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Descrever refeição'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: descCtl, decoration: const InputDecoration(hintText: 'Ex.: Prato com frango, arroz e feijão')),
+            const SizedBox(height: 8),
+            TextField(controller: gramsCtl, decoration: const InputDecoration(labelText: 'Gramas (g)'), keyboardType: TextInputType.number),
+            const SizedBox(height: 8),
+            TextField(controller: labelCtl, decoration: const InputDecoration(labelText: 'Rótulo')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              final desc = descCtl.text.trim();
+              final grams = double.tryParse(gramsCtl.text.trim());
+              Navigator.pop(ctx);
+              final llm = context.read<LLMService>();
+              if (desc.isEmpty || grams == null || grams <= 0 || !llm.isAvailable()) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dados inválidos ou IA não configurada.')));
+                return;
+              }
+              final meal = await MealAIService(llm).fromText(desc);
+              if (meal == null) {
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não retornou alimento.')));
+                return;
+              }
+              final hive = context.read<HiveService>();
+              await hive.getBox<Meal>('meals').add(meal);
+              await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
+                id: const Uuid().v4(),
+                dateTime: DateTime.now(),
+                label: labelCtl.text.trim().isEmpty ? 'Refeição' : labelCtl.text.trim(),
+                meal: meal,
+                grams: grams,
+              ));
+              _reload();
+            },
+            child: const Text('Criar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _collectAndSave(Meal meal, {String? presetLabel}) async {
+    final gramsCtl = TextEditingController();
+    final labelCtl = TextEditingController(text: presetLabel ?? 'Refeição');
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Quantidade - ${meal.name}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: gramsCtl, decoration: const InputDecoration(labelText: 'Gramas (g)'), keyboardType: TextInputType.number),
+            const SizedBox(height: 8),
+            TextField(controller: labelCtl, decoration: const InputDecoration(labelText: 'Rótulo')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () async {
+              final grams = double.tryParse(gramsCtl.text.trim());
+              if (grams == null || grams <= 0) {
+                Navigator.pop(ctx);
+                return;
+              }
+              final hive = context.read<HiveService>();
+              await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
+                id: const Uuid().v4(),
+                dateTime: DateTime.now(),
+                label: labelCtl.text.trim().isEmpty ? 'Refeição' : labelCtl.text.trim(),
+                meal: meal,
+                grams: grams,
+              ));
+              if (mounted) Navigator.pop(ctx);
+              _reload();
+            },
+            child: const Text('Salvar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddMenu() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.qr_code_scanner),
+              title: const Text('Adicionar por Código de Barras'),
+              onTap: () { Navigator.pop(ctx); _addByBarcode(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.text_fields),
+              title: const Text('Adicionar por Texto (TACO)'),
+              onTap: () { Navigator.pop(ctx); _addByTaco(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.auto_awesome),
+              title: const Text('Adicionar com IA (texto)'),
+              onTap: () { Navigator.pop(ctx); _addByAIText(); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_camera_front),
+              title: const Text('Adicionar com IA (foto)'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await Navigator.push(context, MaterialPageRoute(builder: (_) => const PhotoCaptureAIScreen()));
+                _reload();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = NumberFormat.compact();
+    return Scaffold(
+      appBar: AppBar(title: const Text('Nutrição')),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.local_fire_department),
+              title: Text('Consumido hoje: ${_kcal.toStringAsFixed(0)} kcal'),
+              subtitle: Text('${_todays.length} itens'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_todays.isEmpty)
+            const Center(child: Padding(padding: EdgeInsets.all(24), child: Text('Sem entradas hoje.')))
+          else
+            ..._todays.map((e) => Card(
+              child: ListTile(
+                title: Text('${e.label} — ${e.meal.name}'),
+                subtitle: Text('${e.grams.toStringAsFixed(0)} g  ·  ${e.calories.toStringAsFixed(0)} kcal'),
+                trailing: Text('${fmt.format(e.protein)}g P'),
+              ),
+            )),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddMenu,
+        child: const Icon(Icons.add),
+        tooltip: 'Adicionar refeição',
+      ),
+    );
+  }
 }

@@ -34,7 +34,14 @@ dev_dependencies:
   build_runner: ^2.5.4
 
 flutter:
-  uses-material-design: true
   assets:
-    - assets/prompts/
     - assets/taco.json
+    - assets/benchmarks.json
+    - assets/prompts/meal_from_text.txt
+    - assets/prompts/meal_from_image.txt
+    - assets/prompts/planner_get_questions.txt
+    - assets/prompts/planner_get_routine.txt
+    - assets/prompts/planner_get_day_structure.txt
+    - assets/prompts/planner_get_session_structure.txt
+    - assets/prompts/planner_get_exercise.txt
+    - assets/prompts/diet_get_routine.txt
