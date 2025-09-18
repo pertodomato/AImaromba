@@ -1,3 +1,4 @@
+// lib/features/common/photo_capture_ai_screen.dart
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -5,7 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:fitapp/core/models/meal.dart' as core;
+import 'package:fitapp/core/models/meal.dart';
 import 'package:fitapp/core/models/meal_entry.dart';
 import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/core/services/llm_service.dart';
@@ -13,117 +14,140 @@ import 'package:fitapp/core/utils/meal_ai_service.dart';
 
 class PhotoCaptureAIScreen extends StatefulWidget {
   const PhotoCaptureAIScreen({super.key});
+
   @override
   State<PhotoCaptureAIScreen> createState() => _PhotoCaptureAIScreenState();
 }
 
 class _PhotoCaptureAIScreenState extends State<PhotoCaptureAIScreen> {
-  final _picker = ImagePicker();
-  XFile? _file;
-  bool _loading = false;
+  bool _busy = false;
+  File? _img;
 
-  Future<void> _capture() async {
-    final img = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-    if (img == null) return;
-    setState(() => _file = img);
+  Future<void> _pick(ImageSource src) async {
+    final picker = ImagePicker();
+    final x = await picker.pickImage(source: src, imageQuality: 90);
+    if (x == null) return;
+    setState(() => _img = File(x.path));
+    await _process();
   }
 
-  Future<void> _runAI() async {
-    if (_file == null) return;
+  Future<void> _process() async {
     final llm = context.read<LLMService>();
     if (!llm.isAvailable()) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Configure a IA no Perfil.')));
       return;
     }
-    setState(() => _loading = true);
+
+    setState(() => _busy = true);
     try {
-      final bytes = await File(_file!.path).readAsBytes();
+      final bytes = await _img!.readAsBytes();
       final b64 = base64Encode(bytes);
+
       final ai = MealAIService(llm);
-      final meal = await ai.fromImage([b64], extraText: null);
-      if (meal == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não retornou alimento.')));
-        }
+      final result = await ai.fromImageAuto([b64], extraText: 'Estime nome do prato e peso total em gramas.');
+      if (result == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não conseguiu entender a foto.')));
         return;
       }
-      await _collectAndSave(meal);
-      if (mounted) Navigator.of(context).pop(true);
+
+      // Salva alimento, depois cria entrada com gramas estimadas.
+      final hive = context.read<HiveService>();
+      final mealsBox = hive.getBox<Meal>('meals');
+
+      // Evita duplicar por nome + macros (heurística simples)
+      Meal? toUse;
+      try {
+        toUse = mealsBox.values.firstWhere((m) =>
+            m.name.toLowerCase() == result.meal.name.toLowerCase() &&
+            m.caloriesPer100g == result.meal.caloriesPer100g &&
+            m.proteinPer100g == result.meal.proteinPer100g &&
+            m.carbsPer100g == result.meal.carbsPer100g &&
+            m.fatPer100g == result.meal.fatPer100g);
+      } catch (_) {
+        toUse = null;
+      }
+
+      toUse ??= result.meal;
+      if (toUse == result.meal) {
+        await mealsBox.add(toUse);
+      }
+
+      await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
+            id: const Uuid().v4(),
+            dateTime: DateTime.now(),
+            label: 'Refeição',
+            meal: toUse,
+            grams: result.grmsClamp(),
+          ));
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Refeição registrada: ${toUse.name} • ${result.grmsClamp().toStringAsFixed(0)} g')),
+      );
+      Navigator.pop(context); // volta pra Home; ela recarrega o dashboard
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _busy = false);
     }
-  }
-
-  Future<void> _collectAndSave(core.Meal meal) async {
-    final gramsCtl = TextEditingController();
-    final labelCtl = TextEditingController(text: 'Refeição');
-    await showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Quantidade - ${meal.name}'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: gramsCtl, decoration: const InputDecoration(labelText: 'Gramas (g)'), keyboardType: TextInputType.number),
-            const SizedBox(height: 8),
-            TextField(controller: labelCtl, decoration: const InputDecoration(labelText: 'Rótulo')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          TextButton(
-            onPressed: () async {
-              final grams = double.tryParse(gramsCtl.text.trim());
-              if (grams == null || grams <= 0) {
-                Navigator.pop(ctx);
-                return;
-              }
-              final hive = context.read<HiveService>();
-              await hive.getBox<core.Meal>('meals').add(meal);
-              await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
-                    id: const Uuid().v4(),
-                    dateTime: DateTime.now(),
-                    label: labelCtl.text.trim().isEmpty ? 'Refeição' : labelCtl.text.trim(),
-                    meal: meal,
-                    grams: grams,
-                  ));
-              if (mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Salvar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _capture();
   }
 
   @override
   Widget build(BuildContext context) {
-    final img = _file;
+    final img = _img;
     return Scaffold(
-      appBar: AppBar(title: const Text('IA por Foto')),
+      appBar: AppBar(title: const Text('Adicionar com IA (foto)')),
       body: Center(
-        child: _loading
-            ? const CircularProgressIndicator()
-            : (img == null
-                ? const Text('Nenhuma foto. Toque em “Tirar Foto”.')
-                : Image.file(File(img.path))),
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Expanded(child: OutlinedButton(onPressed: _capture, child: const Text('Tirar Foto'))),
-            const SizedBox(width: 12),
-            Expanded(child: ElevatedButton(onPressed: _runAI, child: const Text('Analisar com IA'))),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: _busy
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('Analisando a foto...'),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (img != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(img, height: 240, fit: BoxFit.cover),
+                      )
+                    else
+                      const Icon(Icons.photo_size_select_actual, size: 96),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _pick(ImageSource.camera),
+                          icon: const Icon(Icons.photo_camera),
+                          label: const Text('Câmera'),
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => _pick(ImageSource.gallery),
+                          icon: const Icon(Icons.photo_library),
+                          label: const Text('Galeria'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
         ),
       ),
     );
   }
+}
+
+// Pequena extensão para garantir faixa razoável de 80–1200 g
+extension on ({Meal meal, double grams}) {
+  double grmsClamp() => grams.clamp(80.0, 1200.0);
 }

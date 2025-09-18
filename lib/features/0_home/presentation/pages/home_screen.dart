@@ -8,7 +8,7 @@ import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/core/services/food_api_service.dart';
 import 'package:fitapp/core/services/food_repository.dart';
 import 'package:fitapp/core/services/llm_service.dart';
-import 'package:fitapp/core/utils/meal_ai_service.dart'; // <-- caminho corrigido
+import 'package:fitapp/core/utils/meal_ai_service.dart';
 
 import 'package:fitapp/features/common/scan_barcode_screen.dart';
 import 'package:fitapp/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';

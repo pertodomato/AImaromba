@@ -51,7 +51,7 @@ class GeminiProvider implements LLMProvider {
   }
 }
 
-/// GPT-5 Thinking ou fallback gpt-4o
+/// GPT-5 Thinking (ou outro suportado) com visão via imageUrl base64 data:
 class GPTProvider implements LLMProvider {
   final String apiKey;
   final String model;
@@ -93,7 +93,6 @@ class GPTProvider implements LLMProvider {
 
       final resp = await oa.OpenAI.instance.chat.create(
         model: model,
-        responseFormat: {"type": "json_object"},
         messages: msgs,
       ).timeout(const Duration(seconds: 30));
 

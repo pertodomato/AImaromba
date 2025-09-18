@@ -17,13 +17,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _heightController;
   late TextEditingController _weightController;
   late TextEditingController _birthDateController;
-  late TextEditingController _bodyFatController;
+  double _bodyFat = 15.0;
   late String _selectedGender;
   late TextEditingController _geminiApiKeyController;
   late TextEditingController _gptApiKeyController;
   String _selectedLlmProvider = 'gemini';
 
-  // metas de nutrição
+  // metas
   late TextEditingController _dailyKcalController;
   late TextEditingController _dailyProteinController;
 
@@ -37,9 +37,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _nameController = TextEditingController(text: _userProfile.name);
     _heightController = TextEditingController(text: _userProfile.height?.toString() ?? '');
     _weightController = TextEditingController(text: _userProfile.weight?.toString() ?? '');
-    _birthDateController =
-        TextEditingController(text: _userProfile.birthDate == null ? '' : _userProfile.birthDate!.toIso8601String().split('T').first);
-    _bodyFatController = TextEditingController(text: _userProfile.bodyFatPercentage?.toString() ?? '');
+    _birthDateController = TextEditingController(
+      text: _userProfile.birthDate == null ? '' : _userProfile.birthDate!.toIso8601String().split('T').first,
+    );
+    _bodyFat = (_userProfile.bodyFatPercentage ?? 15).toDouble();
     _selectedGender = _userProfile.gender ?? 'Other';
     _geminiApiKeyController = TextEditingController(text: _userProfile.geminiApiKey);
     _gptApiKeyController = TextEditingController(text: _userProfile.gptApiKey);
@@ -55,12 +56,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _heightController.dispose();
     _weightController.dispose();
     _birthDateController.dispose();
-    _bodyFatController.dispose();
     _geminiApiKeyController.dispose();
     _gptApiKeyController.dispose();
     _dailyKcalController.dispose();
     _dailyProteinController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final initial = _userProfile.birthDate ?? DateTime(2000, 1, 1);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1940, 1, 1),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) {
+      _birthDateController.text = picked.toIso8601String().split('T').first;
+      setState(() {});
+    }
   }
 
   void _saveProfile() {
@@ -71,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         weight: double.tryParse(_weightController.text.trim()),
         birthDate: DateTime.tryParse(_birthDateController.text.trim()),
         gender: _selectedGender,
-        bodyFatPercentage: double.tryParse(_bodyFatController.text.trim()),
+        bodyFatPercentage: _bodyFat,
         geminiApiKey: _geminiApiKeyController.text.trim(),
         gptApiKey: _gptApiKeyController.text.trim(),
         selectedLlm: _selectedLlmProvider,
@@ -122,7 +136,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextFormField(controller: _nameController, decoration: const InputDecoration(labelText: 'Nome')),
             TextFormField(controller: _heightController, decoration: const InputDecoration(labelText: 'Altura (cm)'), keyboardType: TextInputType.number),
             TextFormField(controller: _weightController, decoration: const InputDecoration(labelText: 'Peso (kg)'), keyboardType: TextInputType.number),
-            TextFormField(controller: _birthDateController, decoration: const InputDecoration(labelText: 'Nascimento (AAAA-MM-DD)')),
+            GestureDetector(
+              onTap: _pickDate,
+              child: AbsorbPointer(
+                child: TextFormField(
+                  controller: _birthDateController,
+                  decoration: const InputDecoration(labelText: 'Nascimento (AAAA-MM-DD)', suffixIcon: Icon(Icons.date_range)),
+                ),
+              ),
+            ),
             DropdownButtonFormField<String>(
               value: _selectedGender,
               decoration: const InputDecoration(labelText: 'Sexo'),
@@ -133,7 +155,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
               onChanged: (value) => setState(() => _selectedGender = value!),
             ),
-            TextFormField(controller: _bodyFatController, decoration: const InputDecoration(labelText: '% Gordura Corporal'), keyboardType: TextInputType.number),
+            const SizedBox(height: 12),
+            Text('% Gordura Corporal: ${_bodyFat.toStringAsFixed(0)}%'),
+            Slider(
+              value: _bodyFat.clamp(0, 100),
+              min: 0,
+              max: 100,
+              divisions: 100,
+              label: '${_bodyFat.toStringAsFixed(0)}%',
+              onChanged: (v) => setState(() => _bodyFat = v),
+            ),
             const SizedBox(height: 24),
             Text('Metas de Nutrição', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
