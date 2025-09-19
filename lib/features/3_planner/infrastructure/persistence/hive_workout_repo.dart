@@ -4,6 +4,7 @@ import 'package:fitapp/core/models/models.dart';
 import 'package:fitapp/core/models/workout_block.dart';
 import 'package:fitapp/core/models/workout_routine_schedule.dart';
 import 'package:fitapp/core/utils/muscle_validation.dart';
+import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
 class HiveWorkoutRepo {
   final Box<Exercise> exBox;
@@ -22,13 +23,6 @@ class HiveWorkoutRepo {
     required this.routineScheduleBox,
   });
 
-  // ---------- Utils ----------
-  String _slug(String s) => s
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
-      .replaceAll(RegExp(r'^_|_$'), '');
-
   // ---------- Exercises ----------
   Exercise upsertExercise({
     required String name,
@@ -37,22 +31,24 @@ class HiveWorkoutRepo {
     required List<String> secondary,
     required List<String> metrics,
   }) {
-    // valida músculos
     final prim = primary.where(isValidGroupId).toList();
     final sec = secondary.where(isValidGroupId).toList();
 
-    // procura por nome
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final e in exBox.values) {
-      if (_slug(e.name) == slug) return e;
+      if (toSlug(e.name) == s) return e;
     }
-    final ex = Exercise()
-      ..name = name
-      ..description = description
-      ..primaryMuscles = prim
-      ..secondaryMuscles = sec
-      ..relevantMetrics = metrics;
-    exBox.add(ex);
+
+    final ex = Exercise(
+      id: s,
+      name: name,
+      description: description,
+      primaryMuscles: prim,
+      secondaryMuscles: sec,
+      relevantMetrics: metrics,
+    );
+
+    exBox.put(ex.id, ex);
     return ex;
   }
 
@@ -62,15 +58,19 @@ class HiveWorkoutRepo {
     required String description,
     required List<Exercise> exercises,
   }) {
-    final slug = _slug(name);
-    for (final s in sessBox.values) {
-      if (_slug(s.name) == slug) return s;
+    final s = toSlug(name);
+    for (final sess in sessBox.values) {
+      if (toSlug(sess.name) == s) return sess;
     }
-    final sess = WorkoutSession()
-      ..name = name
-      ..description = description
-      ..exerciseIds = exercises.map((e) => e.key as int).toList();
-    sessBox.add(sess);
+
+    final sess = WorkoutSession(
+      id: s,
+      name: name,
+      description: description,
+      exerciseIds: exercises.map((e) => e.id).toList(),
+    );
+
+    sessBox.put(sess.id, sess);
     return sess;
   }
 
@@ -81,16 +81,21 @@ class HiveWorkoutRepo {
     required bool isRest,
     required List<WorkoutSession> sessions,
   }) {
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final d in dayBox.values) {
-      if (_slug(d.name) == slug) return d;
+      if (toSlug(d.name) == s) return d;
     }
-    final day = WorkoutDay()
-      ..name = name
-      ..description = description
-      ..isRest = isRest
-      ..sessionIds = sessions.map((s) => s.key as int).toList();
-    dayBox.add(day);
+
+    final day = WorkoutDay(
+      id: s,
+      name: name,
+      description: description,
+      // Se seu model não tiver 'isRest', remova a linha seguinte.
+      isRest: isRest,
+      sessionIds: sessions.map((e) => e.id).toList(),
+    );
+
+    dayBox.put(day.id, day);
     return day;
   }
 
@@ -100,17 +105,19 @@ class HiveWorkoutRepo {
     required String description,
     required List<WorkoutDay> daysOrdered, // 1–15
   }) {
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final b in blockBox.values) {
-      if (_slug(b.name) == slug) return b;
+      if (b.slug == s) return b;
     }
+
     final block = WorkoutBlock(
-      slug: slug,
+      slug: s,
       name: name,
       description: description,
-      daySlugs: daysOrdered.map((d) => _slug(d.name)).toList(),
+      daySlugs: daysOrdered.map((d) => toSlug(d.name)).toList(),
     );
-    blockBox.add(block);
+
+    blockBox.put(block.slug, block);
     return block;
   }
 
@@ -119,14 +126,18 @@ class HiveWorkoutRepo {
     required String name,
     required String description,
   }) {
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final r in routineBox.values) {
-      if (_slug(r.name) == slug) return r;
+      if (toSlug(r.name) == s) return r;
     }
-    final r = WorkoutRoutine()
-      ..name = name
-      ..description = description;
-    routineBox.add(r);
+
+    final r = WorkoutRoutine(
+      id: s,
+      name: name,
+      description: description,
+    );
+
+    routineBox.put(r.id, r);
     return r;
   }
 
@@ -136,20 +147,26 @@ class HiveWorkoutRepo {
     required List<WorkoutBlock> sequence,
   }) {
     // 1 rotina → 1 schedule
-    for (final s in routineScheduleBox.values) {
-      if (s.routineSlug == routineSlug) {
-        s.blockSequence = sequence.map((b) => b.slug).toList();
-        s.repetitionSchema = repetitionSchema;
-        s.save();
-        return s;
-      }
+    final existing = routineScheduleBox.values
+        .where((sch) => sch.routineSlug == routineSlug)
+        .toList();
+
+    if (existing.isNotEmpty) {
+      final sch = existing.first;
+      sch.blockSequence = sequence.map((b) => b.slug).toList();
+      sch.repetitionSchema = repetitionSchema;
+      sch.save();
+      return sch;
     }
+
     final sch = WorkoutRoutineSchedule(
       routineSlug: routineSlug,
       blockSequence: sequence.map((b) => b.slug).toList(),
       repetitionSchema: repetitionSchema,
     );
-    routineScheduleBox.add(sch);
+
+    // use a slug do routine como chave
+    routineScheduleBox.put(routineSlug, sch);
     return sch;
   }
 }

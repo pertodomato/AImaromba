@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/core/services/llm_service.dart';
 
-import 'package:fitapp/features/3_planner/presentation/controllers/planner_controller.dart';
+import 'package:fitapp/features/3_planner/presentation/pages/controllers/planner_controller.dart';
 import 'package:fitapp/features/3_planner/application/planner_orchestrator.dart';
 import 'package:fitapp/features/3_planner/infrastructure/llm/llm_client_impl.dart';
 import 'package:fitapp/features/3_planner/infrastructure/persistence/hive_workout_repo.dart';

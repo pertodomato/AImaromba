@@ -4,12 +4,16 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/json_safety.dart';
 
+/// Client fino que renderiza templates de prompt e chama o LLMService.
+/// Mantém TODOS os seus prompts atuais (assets/prompts/*.txt).
 class LLMClientImpl {
   final LLMService _llm;
   LLMClientImpl(this._llm);
 
-  Future<Map<String, dynamic>> _callPrompt(
-    String assetPath, Map<String, Object?> vars, {
+  /// ***Agora PÚBLICO***: dispara qualquer prompt por caminho de asset.
+  Future<Map<String, dynamic>> generateFromAsset(
+    String assetPath, {
+    required Map<String, Object?> vars,
     List<String>? imagesBase64,
   }) async {
     final raw = await rootBundle.loadString(assetPath);
@@ -18,7 +22,7 @@ class LLMClientImpl {
       prompt = prompt.replaceAll('{$k}', v is String ? v : jsonEncode(v));
     });
 
-    final resp = await _llm.getJson(prompt, images: null);
+    final resp = await _llm.getJson(prompt); // imagens se precisar: getJson(prompt, images: ...)
     return safeDecodeMap(resp);
   }
 
@@ -28,12 +32,12 @@ class LLMClientImpl {
     required List<Map<String, String>> userAnswers,
     required List<Map<String, String>> existingBlocks,
   }) {
-    return _callPrompt(
+    return generateFromAsset(
       'assets/prompts/planner_get_routine.txt',
-      {
+      vars: {
         'user_profile': jsonEncode(userProfile),
         'user_answers': jsonEncode(userAnswers),
-        'existing_blocks': jsonEncode(existingBlocks),
+        'existing_workout_days': jsonEncode(existingBlocks), // mantém compatível com seu prompt
       },
     );
   }
@@ -42,9 +46,9 @@ class LLMClientImpl {
     required Map<String, String> blockPlaceholder,
     required List<Map<String, String>> existingDays,
   }) {
-    return _callPrompt(
+    return generateFromAsset(
       'assets/prompts/planner_get_block_structure.txt',
-      {
+      vars: {
         'block_placeholder_json': jsonEncode(blockPlaceholder),
         'existing_days_json': jsonEncode(existingDays),
       },
@@ -57,9 +61,9 @@ class LLMClientImpl {
     required List<Map<String, Object?>> existingExercises,
     required List<String> validMuscles,
   }) {
-    return _callPrompt(
+    return generateFromAsset(
       'assets/prompts/planner_get_session_structure.txt',
-      {
+      vars: {
         'day_placeholder_json': jsonEncode(dayPlaceholder),
         'existing_sessions_json': jsonEncode(existingSessions),
         'existing_exercises_json': jsonEncode(existingExercises),
@@ -72,9 +76,9 @@ class LLMClientImpl {
     required Map<String, Object?> hint,
     required List<String> validMuscles,
   }) {
-    return _callPrompt(
+    return generateFromAsset(
       'assets/prompts/planner_get_exercise.txt',
-      {
+      vars: {
         'exercise_hint_json': jsonEncode(hint),
         'valid_muscles_json': jsonEncode(validMuscles),
       },
@@ -87,12 +91,12 @@ class LLMClientImpl {
     required List<Map<String, String>> userAnswers,
     required List<Map<String, String>> existingDietBlocks,
   }) {
-    return _callPrompt(
+    return generateFromAsset(
       'assets/prompts/diet_get_routine.txt',
-      {
+      vars: {
         'user_profile': jsonEncode(userProfile),
         'user_answers': jsonEncode(userAnswers),
-        'existing_diet_blocks': jsonEncode(existingDietBlocks),
+        'existing_diet_days': jsonEncode(existingDietBlocks), // compatível com seu prompt
       },
     );
   }
@@ -102,9 +106,9 @@ class LLMClientImpl {
     required List<Map<String, String>> existingDietDays,
     required List<String> userFoodPrefs,
   }) {
-    return _callPrompt(
+    return generateFromAsset(
       'assets/prompts/diet_get_block_structure.txt',
-      {
+      vars: {
         'diet_block_placeholder_json': jsonEncode(dietBlockPlaceholder),
         'existing_diet_days': jsonEncode(existingDietDays),
         'user_food_prefs': jsonEncode(userFoodPrefs),
@@ -120,9 +124,9 @@ class LLMClientImpl {
     required List<Map<String, Object?>> existingMealsSummary,
     required Map<String, num> dayTargets,
   }) {
-    return _callPrompt(
+    return generateFromAsset(
       'assets/prompts/diet_get_day_plan.txt',
-      {
+      vars: {
         'user_profile': jsonEncode(userProfile),
         'user_goal': userGoal,
         'user_food_prefs': jsonEncode(userFoodPrefs),

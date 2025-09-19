@@ -25,7 +25,6 @@ String toSlug(String name, {List<String> hints = const []}) {
     return buf
         .toString()
         .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
         .replaceAll(RegExp(r'_+'), '_')
         .replaceAll(RegExp(r'^_|_$'), '');
   }

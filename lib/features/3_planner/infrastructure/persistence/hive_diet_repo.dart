@@ -2,6 +2,7 @@
 import 'package:hive/hive.dart';
 import 'package:fitapp/core/models/models.dart';
 import 'package:fitapp/core/models/diet_block.dart';
+import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
 class HiveDietRepo {
   final Box<Meal> mealBox;
@@ -22,12 +23,6 @@ class HiveDietRepo {
     this.planItemBox,
   });
 
-  String _slug(String s) => s
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
-      .replaceAll(RegExp(r'_+'), '_')
-      .replaceAll(RegExp(r'^_|_$'), '');
-
   // ---------- Meals ----------
   Meal upsertMeal({
     required String name,
@@ -37,18 +32,22 @@ class HiveDietRepo {
     required num cPer100,
     required num fPer100,
   }) {
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final m in mealBox.values) {
-      if (_slug(m.name) == slug) return m;
+      if (toSlug(m.name) == s) return m;
     }
-    final meal = Meal()
-      ..name = name
-      ..description = description
-      ..caloriesPer100g = kcalPer100.toDouble()
-      ..proteinPer100g = pPer100.toDouble()
-      ..carbsPer100g = cPer100.toDouble()
-      ..fatPer100g = fPer100.toDouble();
-    mealBox.add(meal);
+
+    final meal = Meal(
+      id: s,
+      name: name,
+      description: description,
+      caloriesPer100g: kcalPer100.toDouble(),
+      proteinPer100g: pPer100.toDouble(),
+      carbsPer100g: cPer100.toDouble(),
+      fatPer100g: fPer100.toDouble(),
+    );
+
+    mealBox.put(meal.id, meal);
     return meal;
   }
 
@@ -58,15 +57,19 @@ class HiveDietRepo {
     required String description,
     required List<Meal> structure, // estrutura genérica (sem quantidades)
   }) {
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final d in dayBox.values) {
-      if (_slug(d.name) == slug) return d;
+      if (toSlug(d.name) == s) return d;
     }
-    final ddy = DietDay()
-      ..name = name
-      ..description = description
-      ..mealIds = structure.map((m) => m.key as int).toList();
-    dayBox.add(ddy);
+
+    final ddy = DietDay(
+      id: s,
+      name: name,
+      description: description,
+      mealIds: structure.map((m) => m.id).toList(),
+    );
+
+    dayBox.put(ddy.id, ddy);
     return ddy;
   }
 
@@ -76,17 +79,19 @@ class HiveDietRepo {
     required String description,
     required List<DietDay> daysOrdered,
   }) {
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final b in blockBox.values) {
-      if (_slug(b.name) == slug) return b;
+      if (b.slug == s) return b;
     }
+
     final block = DietBlock(
-      slug: slug,
+      slug: s,
       name: name,
       description: description,
-      daySlugs: daysOrdered.map((d) => _slug(d.name)).toList(),
+      daySlugs: daysOrdered.map((d) => toSlug(d.name)).toList(),
     );
-    blockBox.add(block);
+
+    blockBox.put(block.slug, block);
     return block;
   }
 
@@ -97,19 +102,24 @@ class HiveDietRepo {
     required String repetitionSchema,
     required List<DietBlock> sequence,
   }) {
-    final slug = _slug(name);
+    final s = toSlug(name);
     for (final r in routineBox.values) {
-      if (_slug(r.name) == slug) {
-        // Se já existir, você pode querer atualizar um campo "notes" etc.
+      if (toSlug(r.name) == s) {
+        // Idempotente; se precisar atualizar algo, faça r.campo = ...; r.save();
         return r;
       }
     }
-    final r = DietRoutine()
-      ..name = name
-      ..description = description
-      ..repetitionSchema = repetitionSchema
-      ..blockSlugs = sequence.map((b) => b.slug).toList();
-    routineBox.add(r);
+
+    // IMPORTANTE: requer que seu model DietRoutine tenha 'blockSlugs'
+    final r = DietRoutine(
+      id: s,
+      name: name,
+      description: description,
+      repetitionSchema: repetitionSchema,
+      blockSlugs: sequence.map((b) => b.slug).toList(),
+    );
+
+    routineBox.put(r.id, r);
     return r;
   }
 }
