@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:fitapp/core/models/models.dart';
 import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/features/3_planner/presentation/pages/new_plan_flow_screen.dart';
+import 'package:hive/hive.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -18,6 +19,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   DateTime? _selectedDay;
 
   WorkoutRoutine? _workoutRoutine;
+  Map<String, dynamic>? _routineScheduleRaw; // {id, routineId, slots:[{kind, dayId}]}
   DietRoutine? _dietRoutine;
 
   @override
@@ -35,6 +37,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
     setState(() {
       _workoutRoutine = wr.isEmpty ? null : wr.first;
       _dietRoutine = dr.isEmpty ? null : dr.first;
+      // schedule raw salvo pelo repo em routine_schedules (Map)
+      final schedBox = Hive.box('routine_schedules');
+      if (_workoutRoutine != null) {
+        _routineScheduleRaw = schedBox.get(_workoutRoutine!.id) as Map<String, dynamic>?;
+      } else {
+        _routineScheduleRaw = null;
+      }
     });
     _selectedEvents.value = _getEventsForDay(_selectedDay!);
   }
@@ -42,15 +51,22 @@ class _PlannerScreenState extends State<PlannerScreen> {
   List<String> _getEventsForDay(DateTime day) {
     final List<String> events = [];
 
-    // Workout
-    if (_workoutRoutine != null) {
+    // Workout via schedule
+    if (_workoutRoutine != null && _routineScheduleRaw != null) {
       final r = _workoutRoutine!;
+      final slots = List<Map>.from(_routineScheduleRaw!['slots'] as List);
       final diff = day.difference(r.startDate).inDays;
-      if (diff >= 0 && r.days.isNotEmpty) {
-        final idx = diff % r.days.length;
-        final wd = r.days[idx];
-        if (wd.name.toLowerCase() != 'descanso') {
-          events.add('Treino: ${wd.name}');
+      if (diff >= 0 && slots.isNotEmpty) {
+        final idx = diff % slots.length;
+        final slot = slots[idx];
+        if (slot['kind'] == 'rest') {
+          // nada
+        } else if (slot['kind'] == 'day') {
+          final dayId = slot['dayId'] as String?;
+          if (dayId != null) {
+            final d = r.days.firstWhere((x) => x.id == dayId, orElse: () => r.days.first);
+            events.add('Treino: ${d.name}');
+          }
         }
       }
     }

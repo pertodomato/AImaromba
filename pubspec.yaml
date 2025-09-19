@@ -35,13 +35,5 @@ dev_dependencies:
 
 flutter:
   assets:
-    - assets/taco.json
-    - assets/benchmarks.json
-    - assets/prompts/meal_from_text.txt
-    - assets/prompts/meal_from_image.txt
-    - assets/prompts/planner_get_questions.txt
-    - assets/prompts/planner_get_routine.txt
-    - assets/prompts/planner_get_day_structure.txt
-    - assets/prompts/planner_get_session_structure.txt
-    - assets/prompts/planner_get_exercise.txt
-    - assets/prompts/diet_get_routine.txt
+    - assets/
+    - assets/prompts/

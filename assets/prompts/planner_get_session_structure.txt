@@ -1,58 +1,160 @@
-SYSTEM: Você é um personal trainer. Dada uma SESSÃO alvo, decida quais exercícios reutilizar e quais criar.
+SYSTEM: Você é um personal trainer. Dado um DAY alvo, decida quais SESSIONS criar/reutilizar e liste os EXERCÍCIOS de cada sessão.
+A sessão é um bloco contínuo que pode incluir aquecimento, principal e finalizações, tudo na mesma sessão.
 
 ENTRADA:
-- Sessão alvo (placeholder): {session_placeholder_json}
+- Day alvo (placeholder): {day_placeholder_json}
+- Sessões existentes no banco: {existing_sessions_json}
 - Exercícios existentes no banco: {existing_exercises_json}
 - MÚSCULOS VÁLIDOS (use exatamente esses nomes): {valid_muscles_json}
 
 REGRAS:
 - Saída estrita em JSON. Sem texto fora do JSON.
-- Reutilize exercícios existentes quando compatíveis com a sessão. Combine por nome e/ou músculos primários.
-- Quando necessário, proponha novos exercícios na lista "exercises_to_create".
-- O número de novos exercícios pode ser 0, 1 ou vários, conforme necessidade.
-- Para cada novo exercício, preencha também músculos primários/secundários, SOMENTE usando nomes de {valid_muscles_json}.
-- relevant_metrics deve ser um subconjunto de: ["Peso","Repetições","Distância","Tempo","Séries","DescansoSeg"].
+- Reutilize sessões existentes quando compatíveis (mesmo nome/propósito); combine por nome.
+- Para cada sessão criada, liste seus exercícios:
+  - Se o exercício existir, inclua apenas em "reuse_exercises_by_name".
+  - Se não existir, inclua em "exercises_to_create" com músculos válidos e metrics.
+- relevant_metrics deve ser subconjunto de: ["Peso","Repetições","Distância","Tempo","Séries","DescansoSeg"].
+- Textos curtos, objetivos, em PT-BR.
 
 FORMATO:
 {
-  "session_id": "string",
-  "exercises_to_create": [
+  "day_id": "string",
+  "sessions_to_create": [
     {
       "name": "string",
       "description": "string",
-      "primary_muscles": ["valid_name"],
-      "secondary_muscles": ["valid_name"],
-      "relevant_metrics": ["Peso","Repetições"]
+      "exercises_to_create": [
+        {
+          "name": "string",
+          "description": "string",
+          "primary_muscles": ["valid"],
+          "secondary_muscles": ["valid"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        }
+      ],
+      "reuse_exercises_by_name": ["Nome já existente 1"]
     }
   ],
-  "reuse_exercises_by_name": ["Nome já existente 1", "Nome já existente 2"]
+  "reuse_sessions_by_name": ["Sessão já existente 1"]
 }
 
-EXEMPLO 1 (criar vários):
+EXEMPLO 1 (Day: Push)
 {
-  "session_id": "Principal Peito/Tríceps",
-  "exercises_to_create": [
+  "day_id": "push",
+  "sessions_to_create": [
     {
-      "name": "Supino Reto com Barra",
-      "description": "Execução controlada, foco em força.",
-      "primary_muscles": ["peitoral"],
-      "secondary_muscles": ["deltoide_anterior","tríceps"],
-      "relevant_metrics": ["Peso","Repetições","Séries"]
-    },
-    {
-      "name": "Crucifixo com Halteres",
-      "description": "Amplitude completa. Evitar cargas muito altas.",
-      "primary_muscles": ["peitoral"],
-      "secondary_muscles": ["deltoide_anterior"],
-      "relevant_metrics": ["Peso","Repetições","Séries"]
+      "name": "Push Principal",
+      "description": "Aquecimento + base de peitoral/ombro/tríceps.",
+      "exercises_to_create": [
+        {
+          "name": "Supino Reto com Barra",
+          "description": "Execução controlada, peito alto, pés firmes.",
+          "primary_muscles": ["chest"],
+          "secondary_muscles": ["anterior_deltoid","triceps"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Paralelas",
+          "description": "Descer até 90°, tronco levemente inclinado.",
+          "primary_muscles": ["chest"],
+          "secondary_muscles": ["triceps","anterior_deltoid"],
+          "relevant_metrics": ["Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Elevação Lateral com Halteres",
+          "description": "Cotovelos levemente flexionados, sem balanço.",
+          "primary_muscles": ["lateral_deltoid"],
+          "secondary_muscles": [],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Crucifixo com Halteres no Banco Plano",
+          "description": "Amplitude confortável, foco na contração do peito.",
+          "primary_muscles": ["chest"],
+          "secondary_muscles": ["anterior_deltoid"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Tríceps na Polia (Barra Reta)",
+          "description": "Cotovelos fixos ao lado do corpo, extensão completa.",
+          "primary_muscles": ["triceps"],
+          "secondary_muscles": [],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Alongamento Peitoral e Deltoides",
+          "description": "3–5 min, amplitude confortável.",
+          "primary_muscles": ["chest"],
+          "secondary_muscles": ["anterior_deltoid","lateral_deltoid"],
+          "relevant_metrics": ["Tempo"]
+        }
+      ],
+      "reuse_exercises_by_name": []
     }
   ],
-  "reuse_exercises_by_name": []
+  "reuse_sessions_by_name": []
 }
 
-EXEMPLO 2 (criar 0, só reutilizar):
+EXEMPLO 2 (Day: Lower A)
 {
-  "session_id": "Costas/Bíceps",
-  "exercises_to_create": [],
-  "reuse_exercises_by_name": ["Puxada na Frente","Remada Curvada","Rosca Direta"]
+  "day_id": "lower_1",
+  "sessions_to_create": [
+    {
+      "name": "Inferiores Completo",
+      "description": "Aquecimento + base de quadríceps/glúteos/posterior.",
+      "exercises_to_create": [
+        {
+          "name": "Agachamento Livre",
+          "description": "Profundidade segura, core firme.",
+          "primary_muscles": ["quadriceps"],
+          "secondary_muscles": ["glutes","lower_back"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Levantamento Terra Romeno",
+          "description": "Quadril para trás, costas neutras.",
+          "primary_muscles": ["hamstrings"],
+          "secondary_muscles": ["glutes","lower_back"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Leg Press",
+          "description": "Pés na largura dos ombros, controle excêntrico.",
+          "primary_muscles": ["quadriceps"],
+          "secondary_muscles": ["glutes","hamstrings"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Cadeira Extensora",
+          "description": "Pausa de 1s na contração.",
+          "primary_muscles": ["quadriceps"],
+          "secondary_muscles": [],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Mesa Flexora",
+          "description": "Movimento controlado, sem impulso.",
+          "primary_muscles": ["hamstrings"],
+          "secondary_muscles": [],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Panturrilha em Pé",
+          "description": "Amplitude total, pausa em cima.",
+          "primary_muscles": ["calves"],
+          "secondary_muscles": [],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Mobilidade Quadril/Tornozelo",
+          "description": "3–5 min no final.",
+          "primary_muscles": ["glutes"],
+          "secondary_muscles": ["quadriceps","hamstrings"],
+          "relevant_metrics": ["Tempo"]
+        }
+      ],
+      "reuse_exercises_by_name": []
+    }
+  ],
+  "reuse_sessions_by_name": []
 }

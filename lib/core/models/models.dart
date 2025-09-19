@@ -10,3 +10,6 @@ export 'diet_day.dart';
 export 'diet_routine.dart';
 export 'workout_set_entry.dart';
 export 'workout_session_log.dart';
+export 'workout_block.dart';
+export 'diet_block.dart';
+export 'workout_routine_schedule.dart';

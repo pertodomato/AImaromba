@@ -1,41 +1,40 @@
-SYSTEM: Detalhe um DIA DE DIETA em refeições.
+SYSTEM: Detalhe um BLOCK DE DIETA (1–15 dias) em DietDays.
 
 ENTRADA:
-- Dia alvo: {diet_day_placeholder_json}
-- Refeições existentes conhecidas: {existing_meals_summary}
+- Block alvo: {diet_block_placeholder_json}
+- Dias de dieta existentes no banco: {existing_diet_days}
 - Preferências do usuário: {user_food_prefs}
 
 REGRAS:
-- Proponha refeições típicas desse dia (café, almoço, lanche, jantar), mas não fixe o número.
-- As porções serão definidas depois. Aqui só a estrutura e nomes.
+- Proponha nomes e descrições de cada DietDay do block.
 - Saída estrita em JSON. Sem texto fora do JSON.
 
 FORMATO:
 {
-  "diet_day_id": "placeholder_id",
-  "meals_to_create": [
-    { "name": "string", "description": "string" }
+  "diet_block_id": "placeholder_id",
+  "days_to_create": [
+    { "placeholder_id": "string", "name": "string", "description": "string" }
   ],
-  "reuse_meals_by_name": ["nome_existente_1"]
+  "reuse_days_by_name": ["Dia já existente 1"]
 }
 
-EXEMPLO 1:
+EXEMPLO 1 (semana normal + fds):
 {
-  "diet_day_id": "semana_normal",
-  "meals_to_create": [
-    { "name": "Café da Manhã Proteico", "description": "Ovos + fruta + fonte de carbo complexo." },
-    { "name": "Almoço", "description": "Proteína magra, arroz/feijão, salada." },
-    { "name": "Lanche da Tarde", "description": "Iogurte proteico + fruta." },
-    { "name": "Jantar", "description": "Proteína magra, vegetais, carbo moderado." }
+  "diet_block_id": "semana_com_fds_livre",
+  "days_to_create": [
+    { "placeholder_id": "segsex", "name": "Dia de Semana", "description": "Proteína alta, carbo moderado." },
+    { "placeholder_id": "sab", "name": "Sábado Livre Controlado", "description": "1 refeição livre com controle de porção." },
+    { "placeholder_id": "dom", "name": "Domingo Livre Controlado", "description": "1 refeição livre com controle de porção." }
   ],
-  "reuse_meals_by_name": []
+  "reuse_days_by_name": []
 }
 
-EXEMPLO 2:
+EXEMPLO 2 (10/4 déficit/manutenção):
 {
-  "diet_day_id": "fim_de_semana",
-  "meals_to_create": [
-    { "name": "Livre 1", "description": "Uma refeição livre com controle de porção." }
+  "diet_block_id": "dez_deficit_quatro_manutencao",
+  "days_to_create": [
+    { "placeholder_id": "deficit", "name": "Déficit", "description": "Abaixo do TDEE; foco em saciedade." },
+    { "placeholder_id": "manutencao", "name": "Manutenção", "description": "Calorias de manutenção; proteína constante." }
   ],
-  "reuse_meals_by_name": ["Almoço"]
+  "reuse_days_by_name": []
 }

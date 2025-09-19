@@ -1,9 +1,13 @@
+// lib/core/models/ai_plan.dart
 import 'package:flutter/foundation.dart';
 
 class AiPlan {
   AiPlan({
     required this.id,
     required this.createdAt,
+    // MUDANÇA 1: Adicionados os campos para o resumo textual
+    this.workoutSummary,
+    this.nutritionSummary,
     this.goal,
     this.experienceLevel,
     this.mesocycleWeeks,
@@ -16,18 +20,21 @@ class AiPlan {
 
   final String id;
   final DateTime createdAt;
+  
+  // MUDANÇA 2: Campos para o resumo
+  final String? workoutSummary;
+  final String? nutritionSummary;
 
-  final String? goal;                 // ex: "Hipertrofia", "Emagrecimento"
-  final String? experienceLevel;      // ex: "Iniciante", "Intermediário", "Avançado"
-  final int? mesocycleWeeks;          // ex: 4, 6, 8
-  final int? dailyCalories;           // kcal/dia se a IA retornar
+  final String? goal;
+  final String? experienceLevel;
+  final int? mesocycleWeeks;
+  final int? dailyCalories;
 
-  final AiMacroTarget? macros;        // macros absolutos (g) e/ou proporções
+  final AiMacroTarget? macros;
   final List<AiWorkoutDay> weekTemplate;
   final List<ProgressionRule> progression;
   final String? notes;
 
-  /// Parser tolerante a chaves diferentes que a IA possa retornar.
   factory AiPlan.fromMap(Map<String, dynamic> m) {
     AiMacroTarget? macros;
     if (m['macros'] is Map) {
@@ -55,6 +62,11 @@ class AiPlan {
     return AiPlan(
       id: (m['id'] ?? m['planId'] ?? m['uuid'] ?? '').toString(),
       createdAt: DateTime.tryParse(m['createdAt']?.toString() ?? '') ?? DateTime.now(),
+      
+      // MUDANÇA 3: Lendo os campos de resumo do JSON
+      workoutSummary: m['workout_summary']?.toString(),
+      nutritionSummary: m['nutrition_summary']?.toString(),
+
       goal: m['goal']?.toString(),
       experienceLevel: m['experienceLevel']?.toString() ?? m['level']?.toString(),
       mesocycleWeeks: _toInt(m['mesocycleWeeks'] ?? m['weeks']),
@@ -92,8 +104,8 @@ class AiMacroTarget {
 
 class AiWorkoutDay {
   AiWorkoutDay({required this.day, this.focus, this.blocks = const []});
-  final String day;            // ex: "Segunda", "Terça", "Upper", "Lower"
-  final String? focus;         // ex: "Empurrar", "Puxar", "Quadríceps"
+  final String day;
+  final String? focus;
   final List<AiExerciseBlock> blocks;
 
   factory AiWorkoutDay.fromMap(Map<String, dynamic> m) {
@@ -125,10 +137,10 @@ class AiExerciseBlock {
     this.tempo,
   });
 
-  final String name;     // nome do exercício vindo da IA
-  final String? exerciseId; // se já casou com seu catálogo/hive
+  final String name;
+  final String? exerciseId;
   final int? sets;
-  final String? reps;    // aceitar "8-10", "5", etc
+  final String? reps;
   final double? rpe;
   final double? rir;
   final int? restSec;
@@ -148,7 +160,7 @@ class AiExerciseBlock {
 
 class ProgressionRule {
   ProgressionRule({required this.type, this.params});
-  final String type; // ex: "double_progression", "linear_load", "wave"
+  final String type;
   final Map<String, dynamic>? params;
 
   factory ProgressionRule.fromMap(Map<String, dynamic> m) => ProgressionRule(
