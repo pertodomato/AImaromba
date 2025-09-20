@@ -49,6 +49,8 @@ class HiveWorkoutRepo {
     );
 
     exBox.put(ex.id, ex);
+    // ignore: avoid_print
+    print('.. saved EXERCISE: ${ex.id} | $name');
     return ex;
   }
 
@@ -56,7 +58,7 @@ class HiveWorkoutRepo {
   WorkoutSession upsertSession({
     required String name,
     required String description,
-    required List<Exercise> exercises, // mantido para interface
+    required List<Exercise> exercises,
   }) {
     final s = toSlug(name);
     for (final sess in sessBox.values) {
@@ -71,6 +73,8 @@ class HiveWorkoutRepo {
     );
 
     sessBox.put(sess.id, sess);
+    // ignore: avoid_print
+    print('.. saved SESSION: ${sess.id} | $name (ex: ${exercises.length})');
     return sess;
   }
 
@@ -93,6 +97,8 @@ class HiveWorkoutRepo {
     );
 
     dayBox.put(day.id, day);
+    // ignore: avoid_print
+    print('.. saved DAY: ${day.id} | $name (sessions: ${sessions.length})');
     return day;
   }
 
@@ -100,7 +106,7 @@ class HiveWorkoutRepo {
   WorkoutBlock upsertBlock({
     required String name,
     required String description,
-    required List<WorkoutDay> daysOrdered, // 1–15
+    required List<WorkoutDay> daysOrdered,
   }) {
     final s = toSlug(name);
     for (final b in blockBox.values) {
@@ -115,6 +121,8 @@ class HiveWorkoutRepo {
     );
 
     blockBox.put(block.slug, block);
+    // ignore: avoid_print
+    print('.. saved BLOCK: ${block.slug} | $name (days: ${daysOrdered.length})');
     return block;
   }
 
@@ -139,6 +147,8 @@ class HiveWorkoutRepo {
     );
 
     routineBox.put(r.id, r);
+    // ignore: avoid_print
+    print('.. saved ROUTINE: ${r.id} | $name');
     return r;
   }
 
@@ -148,17 +158,16 @@ class HiveWorkoutRepo {
     required List<WorkoutBlock> sequence,
   }) {
     final canonical = toSlug(routineSlug);
-
-    // 1 rotina → 1 schedule
-    final existing = routineScheduleBox.values
-        .where((sch) => sch.routineSlug == canonical)
-        .toList();
+    final existing =
+        routineScheduleBox.values.where((sch) => sch.routineSlug == canonical).toList();
 
     if (existing.isNotEmpty) {
       final sch = existing.first;
       sch.blockSequence = sequence.map((b) => b.slug).toList();
       sch.repetitionSchema = repetitionSchema;
       sch.save();
+      // ignore: avoid_print
+      print('.. updated WORKOUT SCHEDULE: $canonical -> ${sch.blockSequence}');
       return sch;
     }
 
@@ -168,8 +177,9 @@ class HiveWorkoutRepo {
       repetitionSchema: repetitionSchema,
     );
 
-    // usa a slug da rotina como chave
     routineScheduleBox.put(canonical, sch);
+    // ignore: avoid_print
+    print('.. saved WORKOUT SCHEDULE: $canonical -> ${sch.blockSequence}');
     return sch;
   }
 }

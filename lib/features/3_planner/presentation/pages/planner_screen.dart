@@ -13,6 +13,8 @@ import 'package:fitapp/core/models/workout_block.dart';
 import 'package:fitapp/core/models/workout_day.dart';
 import 'package:fitapp/core/models/diet_routine.dart';
 import 'package:fitapp/core/models/diet_block.dart';
+import 'package:fitapp/core/models/diet_day.dart';
+import 'package:fitapp/core/models/diet_routine_schedule.dart';
 
 import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
@@ -31,12 +33,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
   WorkoutRoutine? _workoutRoutine;
   WorkoutRoutineSchedule? _workoutSchedule;
   DietRoutine? _dietRoutine;
+  DietRoutineSchedule? _dietSchedule;
 
   // caches (boxes tipados)
   late final Box<WorkoutBlock> _wBlockBox;
   late final Box<WorkoutDay> _wDayBox;
   late final Box<DietBlock> _dBlockBox;
   late final Box<WorkoutRoutineSchedule> _wScheduleBox;
+  late final Box<DietRoutineSchedule> _dScheduleBox;
+  late final Box<DietDay> _dDayBox;
 
   @override
   void initState() {
@@ -57,23 +62,34 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _dBlockBox = hive.getBox<DietBlock>('diet_blocks');
     _wScheduleBox = hive.getBox<WorkoutRoutineSchedule>('routine_schedules');
 
+    _dScheduleBox = hive.getBox<DietRoutineSchedule>('diet_routine_schedules');
+    _dDayBox = hive.getBox<DietDay>('diet_days');
+
     final wRoutines = hive.getBox<WorkoutRoutine>('workout_routines').values.toList();
     final dRoutines = hive.getBox<DietRoutine>('diet_routines').values.toList();
 
     final selectedWorkoutRoutine = wRoutines.isEmpty ? null : wRoutines.first;
     final selectedDietRoutine = dRoutines.isEmpty ? null : dRoutines.first;
 
-    WorkoutRoutineSchedule? resolvedSchedule;
+    WorkoutRoutineSchedule? resolvedWS;
     if (selectedWorkoutRoutine != null) {
       final rSlug = toSlug(selectedWorkoutRoutine.name);
       final matches = _wScheduleBox.values.where((s) => s.routineSlug == rSlug).toList();
-      resolvedSchedule = matches.isEmpty ? null : matches.first;
+      resolvedWS = matches.isEmpty ? null : matches.first;
+    }
+
+    DietRoutineSchedule? resolvedDS;
+    if (selectedDietRoutine != null) {
+      final rSlug = toSlug(selectedDietRoutine.name);
+      final matches = _dScheduleBox.values.where((s) => s.routineSlug == rSlug).toList();
+      resolvedDS = matches.isEmpty ? null : matches.first;
     }
 
     setState(() {
       _workoutRoutine = selectedWorkoutRoutine;
       _dietRoutine = selectedDietRoutine;
-      _workoutSchedule = resolvedSchedule;
+      _workoutSchedule = resolvedWS;
+      _dietSchedule = resolvedDS;
     });
   }
 
@@ -99,7 +115,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final idx = diff % daySlugsSequence.length;
     final daySlug = daySlugsSequence[idx];
 
-    final match = _wDayBox.values.where((d) => toSlug(d.name) == daySlug);
+    final match = _wDayBox.values.where((d) => toSlug(d.name) == daySlug || d.id == daySlug);
     if (match.isEmpty) return const <String>[];
     final d = match.first;
 
@@ -108,21 +124,30 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   List<String> _resolveDietEventsForDay(DateTime day) {
     final dr = _dietRoutine;
-    if (dr == null) return const <String>[];
+    final ds = _dietSchedule;
+    if (dr == null || ds == null) return const <String>[];
 
     final routineStart = dr.startDate ?? DateTime.now();
     final base = DateTime(routineStart.year, routineStart.month, routineStart.day);
     final diff = day.difference(base).inDays;
     if (diff < 0) return const <String>[];
 
-    // Deriva diretamente dos blocks salvos.
-    final dietDaySlugs = _dBlockBox.values.expand((b) => b.daySlugs).toList();
+    final dietDaySlugs = <String>[];
+    for (final bslug in ds.blockSequence) {
+      final blockMatches = _dBlockBox.values.where((b) => b.slug == bslug).toList();
+      if (blockMatches.isEmpty) continue;
+      final block = blockMatches.first;
+      dietDaySlugs.addAll(block.daySlugs);
+    }
     if (dietDaySlugs.isEmpty) return const <String>[];
 
     final idx = diff % dietDaySlugs.length;
     final slug = dietDaySlugs[idx];
 
-    return <String>['Dieta: $slug'];
+    final dmatch = _dDayBox.values.where((d) => d.id == slug);
+    final name = dmatch.isEmpty ? slug : dmatch.first.name;
+
+    return <String>['Dieta: $name'];
   }
 
   List<String> _getEventsForDay(DateTime day) {

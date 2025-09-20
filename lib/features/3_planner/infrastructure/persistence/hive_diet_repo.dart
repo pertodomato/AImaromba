@@ -144,6 +144,9 @@ class HiveDietRepo {
         ..fatPer100g = fPer100;
       // ignore: discarded_futures
       existing.save();
+      // LOG
+      // ignore: avoid_print
+      print('.. updated MEAL: ${existing.id} | ${existing.name}');
       return existing;
     } else {
       // garantir key única
@@ -159,6 +162,9 @@ class HiveDietRepo {
       );
       // ignore: discarded_futures
       mealsBox.put(key, created);
+      // LOG
+      // ignore: avoid_print
+      print('.. saved MEAL: ${created.id} | ${created.name}');
       return created;
     }
   }
@@ -194,6 +200,9 @@ class HiveDietRepo {
         ..description = description;
       // ignore: discarded_futures
       day.save();
+      // LOG
+      // ignore: avoid_print
+      print('.. updated DIET DAY: ${day.id} | ${day.name}');
       return day;
     }
 
@@ -206,6 +215,9 @@ class HiveDietRepo {
     );
     // ignore: discarded_futures
     dietDaysBox.put(key, created);
+    // LOG
+    // ignore: avoid_print
+    print('.. saved DIET DAY: ${created.id} | ${created.name}');
     return created;
   }
 
@@ -231,6 +243,9 @@ class HiveDietRepo {
         ..daySlugs = daySlugs;
       // ignore: discarded_futures
       block.save();
+      // LOG
+      // ignore: avoid_print
+      print('.. updated DIET BLOCK: ${block.slug} | ${block.name} (days: ${daySlugs.length})');
       return block;
     }
 
@@ -243,6 +258,9 @@ class HiveDietRepo {
     );
     // ignore: discarded_futures
     dietBlocksBox.put(key, created);
+    // LOG
+    // ignore: avoid_print
+    print('.. saved DIET BLOCK: ${created.slug} | ${created.name} (days: ${daySlugs.length})');
     return created;
   }
 
@@ -266,6 +284,9 @@ class HiveDietRepo {
         ..repetitionSchema = repetitionSchema;
       // ignore: discarded_futures
       r.save();
+      // LOG
+      // ignore: avoid_print
+      print('.. updated DIET ROUTINE: ${r.id} | ${r.name}');
       return r;
     }
 
@@ -281,6 +302,9 @@ class HiveDietRepo {
     );
     // ignore: discarded_futures
     dietRoutinesBox.put(key, created);
+    // LOG
+    // ignore: avoid_print
+    print('.. saved DIET ROUTINE: ${created.id} | ${created.name}');
     return created;
   }
 
@@ -315,6 +339,9 @@ class HiveDietRepo {
         ..repetitionSchema = repetitionSchema;
       // ignore: discarded_futures
       sch.save();
+      // LOG
+      // ignore: avoid_print
+      print('.. updated DIET SCHEDULE: $canonical -> $blockSeq');
       return sch;
     }
 
@@ -326,6 +353,9 @@ class HiveDietRepo {
     // Usa a própria slug como key principal do schedule
     // ignore: discarded_futures
     dietRoutineScheduleBox.put(canonical, sch);
+    // LOG
+    // ignore: avoid_print
+    print('.. saved DIET SCHEDULE: $canonical -> $blockSeq');
     return sch;
   }
 
@@ -355,6 +385,9 @@ class HiveDietRepo {
     );
     // ignore: discarded_futures
     dietDayMealPlanItemsBox.put(key, item);
+    // LOG
+    // ignore: avoid_print
+    print('.. saved DIET PLAN ITEM: ${item.id} | ${item.label} (${grams} g)');
     return item;
   }
 
@@ -396,6 +429,9 @@ class HiveDietRepo {
       plan.items = hiveList;
       // ignore: discarded_futures
       plan.save();
+      // LOG
+      // ignore: avoid_print
+      print('.. updated DIET DAY PLAN: ${plan.id} (${typedItems.length} items)');
       return plan;
     }
 
@@ -410,6 +446,9 @@ class HiveDietRepo {
     );
     // ignore: discarded_futures
     dietDayPlansBox.put(planKey, plan);
+    // LOG
+    // ignore: avoid_print
+    print('.. saved DIET DAY PLAN: ${plan.id} (${typedItems.length} items)');
     return plan;
   }
 

@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    // Próxima refeição de hoje e kcal do dia
+    // Próxima refeição e kcal do dia
     final entries = hive.getBox<MealEntry>('meal_entries').values.toList()
       ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
     final now = DateTime.now();
@@ -79,7 +79,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _nextMeal = null;
     }
 
-    // Meta diária do perfil
     final profile = hive.getUserProfile();
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
 
@@ -106,7 +105,6 @@ class _HomeScreenState extends State<HomeScreen> {
     final days = r.days.toList();
     final now = DateTime.now();
 
-    // próximos 10 “slots” seguindo o esquema da rotina
     final items = <({DateTime date, WorkoutSession session, String dayName})>[];
     for (int i = 0; i < min(10, days.length * 2); i++) {
       final date = now.add(Duration(days: i));
@@ -382,7 +380,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ===== KPI helpers =====
   double _monthCalories() {
     final hive = context.read<HiveService>();
     final now = DateTime.now();
@@ -400,10 +397,10 @@ class _HomeScreenState extends State<HomeScreen> {
       final day = DateTime(s.timestamp.year, s.timestamp.month, s.timestamp.day);
       double add = 0;
       if (cardio) {
-        add = s.metrics['Distância'] ?? 0;
+        add = (s.metrics['Distância'] ?? 0).toDouble();
       } else {
-        final w = s.metrics['Peso'] ?? 0;
-        final r = s.metrics['Repetições'] ?? 0;
+        final w = (s.metrics['Peso'] ?? 0).toDouble();
+        final r = (s.metrics['Repetições'] ?? 0).toDouble();
         add = w * r;
       }
       byDay.update(day, (v) => v + add, ifAbsent: () => add);
@@ -425,7 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: Container(height: maxV == 0 ? 2 : max(2, 70 * (v / maxV)), color: Colors.blueGrey),
+                child: Container(height: maxV == 0 ? 2.0 : max(2.0, 70.0 * (v / maxV)), color: Colors.blueGrey),
               ),
             ),
         ],
@@ -449,7 +446,6 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
-            // Top row: Próx treino | Próx refeição
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -508,10 +504,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-
             const SizedBox(height: 12),
-
-            // Botão para planejar nova rotina
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
@@ -520,10 +513,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NewPlanFlowScreen())),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // Carrossel de evolução
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(12),
@@ -553,10 +543,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ]),
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // “Mapa” simples de músculos mais treinados (lista percentual)
             _TopMusclesCard(),
           ],
         ),
@@ -601,7 +588,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// Card simples com título
 class _KpiCard extends StatelessWidget {
   const _KpiCard({required this.title, required this.child});
   final String title;
@@ -624,7 +610,6 @@ class _KpiCard extends StatelessWidget {
   }
 }
 
-/// Mini “linha” do peso corporal
 class _WeightMiniChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -645,7 +630,7 @@ class _WeightMiniChart extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2),
                 child: Container(
-                  height: max(2, 70 * ((e.weightKg - minW) / span)),
+                  height: max(2.0, 70.0 * ((e.weightKg - minW) / span)),
                   color: Colors.teal,
                 ),
               ),
@@ -656,7 +641,6 @@ class _WeightMiniChart extends StatelessWidget {
   }
 }
 
-/// Lista dos músculos mais treinados no mês (proxy do “mapa”)
 class _TopMusclesCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -669,12 +653,11 @@ class _TopMusclesCard extends StatelessWidget {
 
     final volumeByMuscle = <String, double>{};
     for (final s in monthSets) {
-      // busca segura do exercício sem retornar null em orElse
       final matches = exBox.values.where((e) => e.id == s.exerciseId);
       final Exercise? ex = matches.isNotEmpty ? matches.first : null;
       if (ex == null) continue;
 
-      final vol = (s.metrics['Peso'] ?? 0) * (s.metrics['Repetições'] ?? 0);
+      final vol = (s.metrics['Peso'] ?? 0).toDouble() * (s.metrics['Repetições'] ?? 0).toDouble();
       for (final m in ex.primaryMuscles) {
         volumeByMuscle.update(m, (v) => v + vol, ifAbsent: () => vol);
       }

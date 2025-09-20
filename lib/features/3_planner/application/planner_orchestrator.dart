@@ -35,11 +35,13 @@ class PlannerOrchestrator {
     required this.dietRepo,
   });
 
-  // ------------------ Perguntas (1 etapa) ------------------
+  // ------------------ Perguntas ------------------
   Future<List<Map<String, String>>> generateQuestions({
     required Map<String, Object?> userProfile,
     required String userGoal,
   }) async {
+    // ignore: avoid_print
+    print('== generateQuestions -> goal="$userGoal"');
     final Map<String, dynamic> json = await llm.generateFromAsset(
       'assets/prompts/planner_get_questions.txt',
       vars: {
@@ -48,6 +50,8 @@ class PlannerOrchestrator {
       },
     );
     final list = (json['questions'] as List?) ?? const [];
+    // ignore: avoid_print
+    print('.. questions received: ${list.length}');
     return list
         .map((e) => {
               'id': e['id']?.toString() ?? '',
@@ -56,12 +60,14 @@ class PlannerOrchestrator {
         .toList();
   }
 
-  // ------------------ Resumos (workout + nutrition) ------------------
+  // ------------------ Resumos ------------------
   Future<Map<String, String>> generateSummaries({
     required Map<String, Object?> userProfile,
     required String userGoal,
     required Map<String, String> answers,
   }) async {
+    // ignore: avoid_print
+    print('== generateSummaries');
     final Map<String, dynamic> json = await llm.generateFromAsset(
       'assets/prompts/planner_get_summary.txt',
       vars: {
@@ -74,10 +80,13 @@ class PlannerOrchestrator {
         ),
       },
     );
-    return {
+    final out = {
       'workout_summary': (json['workout_summary'] ?? '').toString(),
       'nutrition_summary': (json['nutrition_summary'] ?? '').toString(),
     };
+    // ignore: avoid_print
+    print('.. summaries ready (workout:${out['workout_summary']!.isNotEmpty}, diet:${out['nutrition_summary']!.isNotEmpty})');
+    return out;
   }
 
   // ------------------ TREINO: constrói tudo com progresso ------------------
@@ -85,10 +94,10 @@ class PlannerOrchestrator {
     required Map<String, Object?> userProfile,
     required Map<String, String> answers,
   }) async* {
-    // 0) Preparação
+    // ignore: avoid_print
+    print('== buildWorkoutPlan (start)');
     yield const ProgressEvent('Planejando rotina de treino...', 0.05);
 
-    // 1) Routine -> Blocks
     final routineJson = await llm.getWorkoutRoutine(
       userProfile: userProfile,
       userAnswers: answers.entries
@@ -96,6 +105,9 @@ class PlannerOrchestrator {
           .toList(),
       existingBlocks: const [],
     );
+    // ignore: avoid_print
+    print('.. routineJson keys: ${routineJson.keys}');
+
     yield const ProgressEvent('Rotina definida. Gerando blocos...', 0.15);
 
     final routineName = (routineJson['routine']?['name'] ?? '').toString();
@@ -106,7 +118,7 @@ class PlannerOrchestrator {
       routineJson['routine']?['block_sequence_placeholders'] ?? const [],
     );
 
-    // cria/garante a rotina (modelo exige repetitionSchema)
+    // cria/garante a rotina
     final routine = workoutRepo.upsertRoutine(
       name: routineName.isNotEmpty ? routineName : 'routine',
       description: routineDesc,
@@ -132,7 +144,7 @@ class PlannerOrchestrator {
         0.2 + 0.4 * (doneBlocks / max(1, blocks.length)),
       );
 
-      // 2.1) Block -> Days (1..15)
+      // 2.1) Block -> Days
       final blockStruct = await llm.getWorkoutBlockStructure(
         blockPlaceholder: {
           'placeholder_id': ph,
@@ -277,11 +289,13 @@ class PlannerOrchestrator {
         .cast<WorkoutBlock>()
         .toList();
 
-    workoutRepo.upsertRoutineSchedule(
+    final sch = workoutRepo.upsertRoutineSchedule(
       routineSlug: toSlug(routine.name),
       repetitionSchema: repetitionSchema,
       sequence: sequence, // já é List<WorkoutBlock>
     );
+    // ignore: avoid_print
+    print('.. workout schedule saved: ${sch.routineSlug} -> ${sch.blockSequence}');
 
     yield const ProgressEvent('Treino concluído!', 1.0);
   }
@@ -291,6 +305,9 @@ class PlannerOrchestrator {
     required Map<String, Object?> userProfile,
     required Map<String, String> answers,
   }) async* {
+    // ignore: avoid_print
+    print('== buildDietPlan (start)');
+
     final Map<String, num> defaultDayTargets = <String, num>{
       'calories': 2200,
       'protein_g': 160,
@@ -299,8 +316,7 @@ class PlannerOrchestrator {
       'fiber_g': 28,
       'water_l': 2.7,
     };
-    final userGoal =
-        (answers['goal'] ?? answers['objetivo'] ?? '').toString();
+    final userGoal = (answers['goal'] ?? answers['objetivo'] ?? '').toString();
     final List<String> foodPrefs = const <String>[];
 
     yield const ProgressEvent('Planejando rotina de dieta...', 0.05);
@@ -313,8 +329,7 @@ class PlannerOrchestrator {
           .toList(),
       existingDietBlocks: const [],
     );
-    yield const ProgressEvent(
-        'Rotina de dieta definida. Gerando blocos...', 0.15);
+    yield const ProgressEvent('Rotina de dieta definida. Gerando blocos...', 0.15);
 
     final rName = (routineJson['diet_routine']?['name'] ?? 'diet_plan').toString();
     final rDesc = (routineJson['diet_routine']?['description'] ?? '').toString();
@@ -324,12 +339,12 @@ class PlannerOrchestrator {
       routineJson['diet_routine']?['block_sequence_placeholders'] ?? const [],
     );
 
-    // cria/garante a rotina base (sem popular days; schedule guarda a sequência)
+    // cria/garante a rotina base
     final routine = dietRepo.upsertDietRoutine(
       name: rName,
       description: rDesc,
       repetitionSchema: repetition,
-      sequence: const [], // mantenha vazio; ordem ficará no schedule
+      sequence: const [],
     );
 
     // Reuso em memória durante a execução
@@ -364,7 +379,7 @@ class PlannerOrchestrator {
       final daysToCreate = (blockStruct['days_to_create'] as List?) ?? const [];
 
       for (final d in daysToCreate) {
-        // Exemplo de estrutura base (pode ser vazia; só para catálogo)
+        // Exemplo de estrutura base (catálogo)
         final List<Meal> baseMeals = <Meal>[
           dietRepo.upsertMeal(
             name: 'cafe_proteico_aveia',
@@ -517,7 +532,7 @@ class PlannerOrchestrator {
         .cast<DietBlock>()
         .toList();
 
-    // Persistir a ordem no DietRoutineSchedule (não popular DietRoutine.days)
+    // Persistir a ordem no DietRoutineSchedule
     dietRepo.upsertDietRoutineSchedule(
       routineSlug: toSlug(routine.name),
       repetitionSchema: repetition,

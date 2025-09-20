@@ -4,13 +4,10 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/json_safety.dart';
 
-/// Client fino que renderiza templates de prompt e chama o LLMService.
-/// Mantém TODOS os seus prompts atuais (assets/prompts/*.txt).
 class LLMClientImpl {
   final LLMService _llm;
   LLMClientImpl(this._llm);
 
-  /// ***Agora PÚBLICO***: dispara qualquer prompt por caminho de asset.
   Future<Map<String, dynamic>> generateFromAsset(
     String assetPath, {
     required Map<String, Object?> vars,
@@ -22,11 +19,20 @@ class LLMClientImpl {
       prompt = prompt.replaceAll('{$k}', v is String ? v : jsonEncode(v));
     });
 
-    final resp = await _llm.getJson(prompt); // imagens se precisar: getJson(prompt, images: ...)
+    // LOG: prompt
+    // ignore: avoid_print
+    print('\n===== LLM PROMPT [$assetPath] =====\n$prompt\n====================================\n');
+
+    final resp = await _llm.getJson(prompt);
+
+    // LOG: resposta crua
+    // ignore: avoid_print
+    print('===== LLM RESPONSE [$assetPath] =====\n$resp\n======================================\n');
+
     return safeDecodeMap(resp);
   }
 
-  // --------- TREINO ----------
+  // ----- Workout -----
   Future<Map<String, dynamic>> getWorkoutRoutine({
     required Map<String, Object?> userProfile,
     required List<Map<String, String>> userAnswers,
@@ -85,7 +91,7 @@ class LLMClientImpl {
     );
   }
 
-  // --------- NUTRIÇÃO ----------
+  // ----- Diet -----
   Future<Map<String, dynamic>> getDietRoutine({
     required Map<String, Object?> userProfile,
     required List<Map<String, String>> userAnswers,
