@@ -15,6 +15,7 @@ import 'package:fitapp/features/3_planner/infrastructure/persistence/hive_workou
 import 'package:fitapp/features/3_planner/infrastructure/persistence/hive_diet_repo.dart';
 
 import 'package:fitapp/core/utils/muscle_validation.dart';
+import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
 class ProgressEvent {
   final String message;
@@ -98,13 +99,18 @@ class PlannerOrchestrator {
 
     final routineName = routineJson['routine']['name'] as String;
     final routineDesc = routineJson['routine']['description'] as String;
-    final repetitionSchema = routineJson['routine']['repetition_schema'] as String;
+    final repetitionSchema =
+        routineJson['routine']['repetition_schema'] as String;
     final blockPlaceholders = List<String>.from(
       routineJson['routine']['block_sequence_placeholders'] ?? const [],
     );
 
-    // cria/garante a rotina
-    final routine = workoutRepo.upsertRoutine(name: routineName, description: routineDesc);
+    // cria/garante a rotina (modelo exige repetitionSchema)
+    final routine = workoutRepo.upsertRoutine(
+      name: routineName,
+      description: routineDesc,
+      repetitionSchema: repetitionSchema,
+    );
 
     // 2) Criar blocks (placeholders)
     final Map<String, WorkoutBlock> blocksCreated = {};
@@ -123,7 +129,11 @@ class PlannerOrchestrator {
 
       // 2.1) Block -> Days (1..15)
       final blockStruct = await llm.getWorkoutBlockStructure(
-        blockPlaceholder: {'placeholder_id': ph, 'name': blockName, 'description': blockDesc},
+        blockPlaceholder: {
+          'placeholder_id': ph,
+          'name': blockName,
+          'description': blockDesc
+        },
         existingDays: const [],
       );
 
@@ -137,7 +147,6 @@ class PlannerOrchestrator {
           final dayRest = workoutRepo.upsertDay(
             name: dayMeta['name'] as String,
             description: (dayMeta['description'] as String?) ?? 'Descanso',
-            isRest: true,
             sessions: const <WorkoutSession>[],
           );
           daysOut.add(dayRest);
@@ -157,21 +166,28 @@ class PlannerOrchestrator {
         );
 
         final List<WorkoutSession> sessionsList = [];
-        final sessionsToCreate = (daySessions['sessions_to_create'] as List?) ?? const [];
+        final sessionsToCreate =
+            (daySessions['sessions_to_create'] as List?) ?? const [];
 
         for (final sess in sessionsToCreate) {
           final List<Exercise> newExercises = [];
-          final exercises = (sess['exercises_to_create'] as List?) ?? const [];
-          for (final ex in exercises) {
+
+          // Aceita "exercises" ou "exercises_to_create"
+          final rawList =
+              (sess['exercises'] ?? sess['exercises_to_create'] ?? const [])
+                  as List;
+          for (final ex in rawList) {
             final exercise = workoutRepo.upsertExercise(
               name: ex['name'] as String,
               description: (ex['description'] as String?) ?? '',
               primary: List<String>.from(ex['primary_muscles'] ?? const []),
               secondary: List<String>.from(ex['secondary_muscles'] ?? const []),
-              metrics: List<String>.from(ex['relevant_metrics'] ?? const []),
+              metrics:
+                  List<String>.from(ex['relevant_metrics'] ?? const []),
             );
             newExercises.add(exercise);
           }
+
           final session = workoutRepo.upsertSession(
             name: (sess['name'] ?? 'Sessão').toString(),
             description: (sess['description'] ?? '').toString(),
@@ -183,7 +199,6 @@ class PlannerOrchestrator {
         final dayEntity = workoutRepo.upsertDay(
           name: (dayMeta['name'] ?? 'Dia').toString(),
           description: (dayMeta['description'] ?? '').toString(),
-          isRest: false,
           sessions: sessionsList,
         );
         daysOut.add(dayEntity);
@@ -206,7 +221,7 @@ class PlannerOrchestrator {
         .toList();
 
     workoutRepo.upsertRoutineSchedule(
-      routineSlug: routine.name.toLowerCase().replaceAll(' ', '_'),
+      routineSlug: toSlug(routine.name),
       repetitionSchema: repetitionSchema,
       sequence: sequence, // já é List<WorkoutBlock>
     );
@@ -219,7 +234,6 @@ class PlannerOrchestrator {
     required Map<String, Object?> userProfile,
     required Map<String, String> answers,
   }) async* {
-    // Você pode derivar metas padrão do perfil/objetivo. Aqui simplifico:
     final Map<String, num> defaultDayTargets = <String, num>{
       'calories': 2200,
       'protein_g': 160,
@@ -228,8 +242,9 @@ class PlannerOrchestrator {
       'fiber_g': 28,
       'water_l': 2.7,
     };
-    final userGoal = (answers['goal'] ?? answers['objetivo'] ?? '').toString();
-    final List<String> foodPrefs = const <String>[]; // alimente de verdade se tiver
+    final userGoal =
+        (answers['goal'] ?? answers['objetivo'] ?? '').toString();
+    final List<String> foodPrefs = const <String>[];
 
     yield const ProgressEvent('Planejando rotina de dieta...', 0.05);
 
@@ -241,11 +256,13 @@ class PlannerOrchestrator {
           .toList(),
       existingDietBlocks: const [],
     );
-    yield const ProgressEvent('Rotina de dieta definida. Gerando blocos...', 0.15);
+    yield const ProgressEvent(
+        'Rotina de dieta definida. Gerando blocos...', 0.15);
 
     final rName = routineJson['diet_routine']['name'] as String;
     final rDesc = routineJson['diet_routine']['description'] as String;
-    final repetition = routineJson['diet_routine']['repetition_schema'] as String;
+    final repetition =
+        routineJson['diet_routine']['repetition_schema'] as String;
     final blockPHs = List<String>.from(
       routineJson['diet_routine']['block_sequence_placeholders'] ?? const [],
     );
@@ -266,7 +283,11 @@ class PlannerOrchestrator {
 
       // 2) Block -> DietDays
       final blockStruct = await llm.getDietBlockStructure(
-        dietBlockPlaceholder: {'placeholder_id': ph, 'name': bName, 'description': bDesc},
+        dietBlockPlaceholder: {
+          'placeholder_id': ph,
+          'name': bName,
+          'description': bDesc
+        },
         existingDietDays: const [],
         userFoodPrefs: foodPrefs,
       );

@@ -2,8 +2,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
-import '../../../3_planner/application/planner_orchestrator.dart';
-import '../../../3_planner/domain/value_objects/question.dart';
+import '../../../application/planner_orchestrator.dart';
+import '../../../domain/value_objects/question.dart';
+
 
 enum PlanUiStep { goal, questions, summary, generating, error }
 
@@ -51,7 +52,8 @@ class PlannerController extends ChangeNotifier {
   Future<void> fetchQuestions({required Map<String,Object?> userProfile, required String goal}) async {
     _set(_state.copyWith(step: PlanUiStep.generating, message: 'IA preparando perguntas...', progress: null));
     try {
-      final qs = await orchestrator.generateQuestions(userProfile: userProfile, userGoal: goal);
+      final raw = await orchestrator.generateQuestions(userProfile: userProfile, userGoal: goal);
+      final qs = raw.map((m) => Question.fromMap(m)).toList();
       _set(_state.copyWith(step: PlanUiStep.questions, questions: qs, message: null, progress: null));
     } catch (e) {
       _set(_state.copyWith(step: PlanUiStep.error, message: 'Erro ao gerar perguntas: $e'));

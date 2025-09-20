@@ -1,103 +1,157 @@
 // lib/core/services/hive_service.dart
+import 'package:flutter/foundation.dart';
+import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-// Models base já existentes
-import 'package:fitapp/core/models/models.dart';
-import 'package:fitapp/core/models/workout_set_entry.dart';
-import 'package:fitapp/core/models/workout_session_log.dart';
-
-// Novos modelos (treino)
+// MODELS com adapters gerados
+import 'package:fitapp/core/models/user_profile.dart';
+import 'package:fitapp/core/models/exercise.dart';
+import 'package:fitapp/core/models/workout_session.dart';
+import 'package:fitapp/core/models/workout_day.dart';
+import 'package:fitapp/core/models/workout_routine.dart';
 import 'package:fitapp/core/models/workout_block.dart';
 import 'package:fitapp/core/models/workout_routine_schedule.dart';
+import 'package:fitapp/core/models/workout_session_log.dart';
+import 'package:fitapp/core/models/workout_set_entry.dart';
 
-// Novos modelos (dieta)
+import 'package:fitapp/core/models/meal.dart';
+import 'package:fitapp/core/models/meal_entry.dart';
+
+import 'package:fitapp/core/models/weight_entry.dart';
+
+import 'package:fitapp/core/models/diet_day.dart';
+import 'package:fitapp/core/models/diet_routine.dart';
 import 'package:fitapp/core/models/diet_block.dart';
-// Se for usar os planos detalhados do dia de dieta:
 import 'package:fitapp/core/models/diet_day_plan.dart';
 import 'package:fitapp/core/models/diet_day_meal_plan_item.dart';
 
 class HiveService {
+  // Boxes tipadas
+  late Box<UserProfile> userProfileBox;
+
+  late Box<Exercise> exercisesBox;
+  late Box<WorkoutSession> workoutSessionsBox;
+  late Box<WorkoutDay> workoutDaysBox;
+  late Box<WorkoutRoutine> workoutRoutinesBox;
+  late Box<WorkoutBlock> workoutBlocksBox;
+  late Box<WorkoutRoutineSchedule> routineSchedulesBox;
+  late Box<WorkoutSessionLog> workoutSessionLogsBox;
+  late Box<WorkoutSetEntry> workoutSetEntriesBox;
+
+  late Box<Meal> mealsBox;
+  late Box<MealEntry> mealEntriesBox;
+
+  late Box<WeightEntry> weightEntriesBox;
+
+  late Box<DietDay> dietDaysBox;
+  late Box<DietRoutine> dietRoutinesBox;
+  late Box<DietBlock> dietBlocksBox;
+  late Box<DietDayPlan> dietDayPlansBox;
+  late Box<DietDayMealPlanItem> dietDayMealPlanItemsBox;
+
+  late Box appPrefsBox;
+
+  bool _initialized = false;
+  bool get isInitialized => _initialized;
+
   Future<void> init() async {
+    if (_initialized) return;
+
     await Hive.initFlutter();
 
-    // ----------------------
-    // Registros de Adapters
-    // ----------------------
-    // Perfil/usuário & bases
-    Hive.registerAdapter(UserProfileAdapter());
-    Hive.registerAdapter(ExerciseAdapter());
-    Hive.registerAdapter(WorkoutSessionAdapter());
-    Hive.registerAdapter(WorkoutDayAdapter());
-    Hive.registerAdapter(WorkoutRoutineAdapter());
-
-    // Treino – novos
-    Hive.registerAdapter(WorkoutBlockAdapter());
-    Hive.registerAdapter(WorkoutRoutineScheduleAdapter());
-
-    // Dieta – já existentes
-    Hive.registerAdapter(MealAdapter());
-    Hive.registerAdapter(MealEntryAdapter());
-    Hive.registerAdapter(WeightEntryAdapter());
-    Hive.registerAdapter(DietDayAdapter());
-    Hive.registerAdapter(DietRoutineAdapter());
-
-    // Dieta – novos
-    Hive.registerAdapter(DietBlockAdapter());
-
-    // Logs/sets
-    Hive.registerAdapter(WorkoutSetEntryAdapter());
-    Hive.registerAdapter(WorkoutSessionLogAdapter());
-
-    // Planos diários detalhados de dieta (se usar)
-    Hive.registerAdapter(DietDayPlanAdapter());
-    Hive.registerAdapter(DietDayMealPlanItemAdapter());
-
-    // -----------
-    // Abertura de Boxes
-    // -----------
-    // Perfil
-    await Hive.openBox<UserProfile>('user_profile');
-
-    // Treino
-    await Hive.openBox<Exercise>('exercises');
-    await Hive.openBox<WorkoutSession>('workout_sessions');
-    await Hive.openBox<WorkoutDay>('workout_days');
-    await Hive.openBox<WorkoutRoutine>('workout_routines');
-    await Hive.openBox<WorkoutBlock>('workout_blocks'); // novo
-    await Hive.openBox<WorkoutRoutineSchedule>('routine_schedules'); // novo
-
-    // Dieta
-    await Hive.openBox<Meal>('meals');
-    await Hive.openBox<MealEntry>('meal_entries');
-    await Hive.openBox<WeightEntry>('weight_entries');
-    await Hive.openBox<DietDay>('diet_days');
-    await Hive.openBox<DietRoutine>('diet_routines');
-    await Hive.openBox<DietBlock>('diet_blocks'); // novo
-
-    // Dieta – planos detalhados (se usar)
-    await Hive.openBox<DietDayPlan>('diet_day_plans');
-    await Hive.openBox<DietDayMealPlanItem>('diet_day_meal_plan_items');
-  }
-
-  Box<T> getBox<T>(String boxName) => Hive.box<T>(boxName);
-
-  // Perfil
-  UserProfile getUserProfile() {
-    final box = getBox<UserProfile>('user_profile');
-    if (box.isEmpty) {
-      // Caso seu UserProfile exija campos obrigatórios no construtor,
-      // ajuste aqui. Se não, o construtor vazio está OK.
-      box.add(UserProfile());
+    // registra adapters apenas se ainda não estiverem registrados
+    void _reg(int id, TypeAdapter adapter) {
+      if (!Hive.isAdapterRegistered(id)) {
+        Hive.registerAdapter(adapter);
+      }
     }
-    return box.getAt(0)!;
+
+    _reg(0,  UserProfileAdapter());
+    _reg(1,  ExerciseAdapter());
+    _reg(11, WorkoutSessionAdapter());
+    _reg(12, WorkoutDayAdapter());
+    _reg(10, WorkoutRoutineAdapter());
+    _reg(41, WorkoutBlockAdapter());
+    _reg(43, WorkoutRoutineScheduleAdapter());
+    _reg(26, WorkoutSessionLogAdapter());
+    _reg(25, WorkoutSetEntryAdapter());
+
+    _reg(20, MealAdapter());
+    _reg(21, MealEntryAdapter());
+
+    _reg(22, WeightEntryAdapter());
+
+    _reg(23, DietDayAdapter());
+    _reg(24, DietRoutineAdapter());
+    _reg(42, DietBlockAdapter());
+    _reg(28, DietDayPlanAdapter());
+    _reg(29, DietDayMealPlanItemAdapter());
+
+    // abre todas as boxes usadas no app
+    userProfileBox        = await Hive.openBox<UserProfile>('user_profile');
+
+    exercisesBox          = await Hive.openBox<Exercise>('exercises');
+    workoutSessionsBox    = await Hive.openBox<WorkoutSession>('workout_sessions');
+    workoutDaysBox        = await Hive.openBox<WorkoutDay>('workout_days');
+    workoutRoutinesBox    = await Hive.openBox<WorkoutRoutine>('workout_routines');
+    workoutBlocksBox      = await Hive.openBox<WorkoutBlock>('workout_blocks');
+    routineSchedulesBox   = await Hive.openBox<WorkoutRoutineSchedule>('routine_schedules');
+
+    workoutSessionLogsBox = await Hive.openBox<WorkoutSessionLog>('workout_session_logs');
+    workoutSetEntriesBox  = await Hive.openBox<WorkoutSetEntry>('workout_set_entries');
+
+    mealsBox              = await Hive.openBox<Meal>('meals');
+    mealEntriesBox        = await Hive.openBox<MealEntry>('meal_entries');
+
+    weightEntriesBox      = await Hive.openBox<WeightEntry>('weight_entries');
+
+    dietDaysBox           = await Hive.openBox<DietDay>('diet_days');
+    dietRoutinesBox       = await Hive.openBox<DietRoutine>('diet_routines');
+    dietBlocksBox         = await Hive.openBox<DietBlock>('diet_blocks');
+    dietDayPlansBox       = await Hive.openBox<DietDayPlan>('diet_day_plans');
+    dietDayMealPlanItemsBox =
+        await Hive.openBox<DietDayMealPlanItem>('diet_day_meal_plan_items');
+
+    appPrefsBox           = await Hive.openBox('app_prefs');
+
+    await _ensureDefaultProfile();
+
+    _initialized = true;
   }
 
-  void saveUserProfile(UserProfile profile) {
-    final box = getBox<UserProfile>('user_profile');
-    if (box.isEmpty) {
-      box.add(profile);
+  // ---- Helpers públicos ----
+
+  /// Retorna uma box já aberta pelo nome (tipada).
+  Box<T> getBox<T>(String name) {
+    if (!Hive.isBoxOpen(name)) {
+      throw HiveError('Box not found. Did you forget to call Hive.openBox()?');
+    }
+    return Hive.box<T>(name);
+    }
+
+  /// Lê (ou cria) o perfil padrão
+  UserProfile getUserProfile() {
+    final existing = userProfileBox.get('profile');
+    if (existing is UserProfile) return existing;
+    final p = UserProfile();
+    userProfileBox.put('profile', p);
+    return p;
+  }
+
+  /// Atualiza/salva o perfil padrão
+  Future<void> saveUserProfile(UserProfile profile) async {
+    if (profile.isInBox) {
+      await profile.save();
     } else {
-      box.putAt(0, profile);
+      await userProfileBox.put('profile', profile);
+    }
+  }
+
+  // ---- Privados ----
+
+  Future<void> _ensureDefaultProfile() async {
+    if (!userProfileBox.containsKey('profile')) {
+      await userProfileBox.put('profile', UserProfile());
     }
   }
 }

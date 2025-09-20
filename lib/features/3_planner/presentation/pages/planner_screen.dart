@@ -43,7 +43,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
     super.initState();
     _selectedDay = _focusedDay;
     _selectedEvents = ValueNotifier<List<String>>(<String>[]);
-    // carrega depois do primeiro frame (context OK)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadRoutines();
       _selectedEvents.value = _getEventsForDay(_selectedDay!);
@@ -53,7 +52,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
   void _loadRoutines() {
     final hive = context.read<HiveService>();
 
-    // abre boxes
     _wBlockBox = hive.getBox<WorkoutBlock>('workout_blocks');
     _wDayBox = hive.getBox<WorkoutDay>('workout_days');
     _dBlockBox = hive.getBox<DietBlock>('diet_blocks');
@@ -84,13 +82,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final ws = _workoutSchedule;
     if (wr == null || ws == null) return const <String>[];
 
-    // Se seu model não tiver startDate, substitua por uma data base fixa.
     final routineStart = wr.startDate ?? DateTime.now();
     final base = DateTime(routineStart.year, routineStart.month, routineStart.day);
     final diff = day.difference(base).inDays;
     if (diff < 0) return const <String>[];
 
-    // monta sequência de slugs de dias a partir dos blocos do schedule
     final daySlugsSequence = <String>[];
     for (final bslug in ws.blockSequence) {
       final blockMatches = _wBlockBox.values.where((b) => b.slug == bslug).toList();
@@ -103,46 +99,29 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final idx = diff % daySlugsSequence.length;
     final daySlug = daySlugsSequence[idx];
 
-    // resolve WorkoutDay pelo slug do nome
-    final dayMatch = _wDayBox.values.firstWhere(
-      (d) => toSlug(d.name) == daySlug,
-      orElse: () => _wDayBox.values.isEmpty ? null as WorkoutDay : _wDayBox.values.first,
-    );
-    if (dayMatch == null) return const <String>[];
+    final match = _wDayBox.values.where((d) => toSlug(d.name) == daySlug);
+    if (match.isEmpty) return const <String>[];
+    final d = match.first;
 
-    // Se seu model tiver isRest e você quiser ocultar:
-    // if (dayMatch.isRest == true) return const <String>[];
-
-    return <String>['Treino: ${dayMatch.name}'];
+    return <String>['Treino: ${d.name}'];
   }
 
   List<String> _resolveDietEventsForDay(DateTime day) {
     final dr = _dietRoutine;
     if (dr == null) return const <String>[];
 
-    // Se seu model não tiver startDate, substitua por uma data base fixa.
     final routineStart = dr.startDate ?? DateTime.now();
     final base = DateTime(routineStart.year, routineStart.month, routineStart.day);
     final diff = day.difference(base).inDays;
     if (diff < 0) return const <String>[];
 
-    // IMPORTANTE: assume que DietRoutine possui `blockSlugs: List<String>`
-    // Se ainda não tiver, ajuste aqui para sua estrutura atual.
-    final dBlockSlugs = dr.blockSlugs ?? const <String>[];
-    if (dBlockSlugs.isEmpty) return const <String>[];
-
-    final dietDaySlugs = <String>[];
-    for (final bslug in dBlockSlugs) {
-      final matches = _dBlockBox.values.where((b) => b.slug == bslug).toList();
-      if (matches.isEmpty) continue;
-      dietDaySlugs.addAll(matches.first.daySlugs);
-    }
+    // Deriva diretamente dos blocks salvos.
+    final dietDaySlugs = _dBlockBox.values.expand((b) => b.daySlugs).toList();
     if (dietDaySlugs.isEmpty) return const <String>[];
 
     final idx = diff % dietDaySlugs.length;
     final slug = dietDaySlugs[idx];
 
-    // Aqui mostramos o slug do dia. Se quiser resolver para DietDay pelo box 'diet_days', faça algo similar ao WorkoutDay.
     return <String>['Dieta: $slug'];
   }
 

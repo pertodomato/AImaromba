@@ -1,11 +1,18 @@
 // lib/features/3_planner/infrastructure/persistence/hive_workout_repo.dart
 import 'package:hive/hive.dart';
+
 import 'package:fitapp/core/models/models.dart';
-import 'package:fitapp/core/models/workout_block.dart';
-import 'package:fitapp/core/models/workout_routine_schedule.dart';
 import 'package:fitapp/core/utils/muscle_validation.dart';
 import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
+/// Repositório Hive para criar/atualizar entidades de treino.
+/// Compatível com os modelos atuais:
+/// - Exercise(id,name,description,primaryMuscles,secondaryMuscles,relevantMetrics)
+/// - WorkoutSession(id,name,description,exercises: HiveList<Exercise>)
+/// - WorkoutDay(id,name,description,sessions: HiveList<WorkoutSession>)
+/// - WorkoutBlock(slug,name,description,daySlugs)
+/// - WorkoutRoutine(id,name,description,startDate,repetitionSchema,days: HiveList<WorkoutDay>)
+/// - WorkoutRoutineSchedule(routineSlug,blockSequence,repetitionSchema)
 class HiveWorkoutRepo {
   final Box<Exercise> exBox;
   final Box<WorkoutSession> sessBox;
@@ -31,8 +38,9 @@ class HiveWorkoutRepo {
     required List<String> secondary,
     required List<String> metrics,
   }) {
-    final prim = primary.where(isValidGroupId).toList();
-    final sec = secondary.where(isValidGroupId).toList();
+    // Normaliza, valida e remove interseções duplicadas
+    final primSet = primary.where(isValidGroupId).toSet();
+    final secSet = secondary.where(isValidGroupId).toSet()..removeAll(primSet);
 
     final s = toSlug(name);
     for (final e in exBox.values) {
@@ -43,9 +51,9 @@ class HiveWorkoutRepo {
       id: s,
       name: name,
       description: description,
-      primaryMuscles: prim,
-      secondaryMuscles: sec,
-      relevantMetrics: metrics,
+      primaryMuscles: primSet.toList(),
+      secondaryMuscles: secSet.toList(),
+      relevantMetrics: List<String>.from(metrics),
     );
 
     exBox.put(ex.id, ex);
@@ -67,7 +75,7 @@ class HiveWorkoutRepo {
       id: s,
       name: name,
       description: description,
-      exerciseIds: exercises.map((e) => e.id).toList(),
+      exercises: HiveList<Exercise>(exBox, objects: exercises),
     );
 
     sessBox.put(sess.id, sess);
@@ -78,7 +86,6 @@ class HiveWorkoutRepo {
   WorkoutDay upsertDay({
     required String name,
     required String description,
-    required bool isRest,
     required List<WorkoutSession> sessions,
   }) {
     final s = toSlug(name);
@@ -90,9 +97,7 @@ class HiveWorkoutRepo {
       id: s,
       name: name,
       description: description,
-      // Se seu model não tiver 'isRest', remova a linha seguinte.
-      isRest: isRest,
-      sessionIds: sessions.map((e) => e.id).toList(),
+      sessions: HiveList<WorkoutSession>(sessBox, objects: sessions),
     );
 
     dayBox.put(day.id, day);
@@ -121,10 +126,11 @@ class HiveWorkoutRepo {
     return block;
   }
 
-  // ---------- Routine & Schedule ----------
+  // ---------- Routine ----------
   WorkoutRoutine upsertRoutine({
     required String name,
     required String description,
+    required String repetitionSchema,
   }) {
     final s = toSlug(name);
     for (final r in routineBox.values) {
@@ -135,20 +141,26 @@ class HiveWorkoutRepo {
       id: s,
       name: name,
       description: description,
+      startDate: DateTime.now(),
+      repetitionSchema: repetitionSchema,
+      days: HiveList<WorkoutDay>(dayBox, objects: const []),
     );
 
     routineBox.put(r.id, r);
     return r;
   }
 
+  // ---------- Routine Schedule ----------
   WorkoutRoutineSchedule upsertRoutineSchedule({
     required String routineSlug,
     required String repetitionSchema,
     required List<WorkoutBlock> sequence,
   }) {
+    final canonical = toSlug(routineSlug);
+
     // 1 rotina → 1 schedule
     final existing = routineScheduleBox.values
-        .where((sch) => sch.routineSlug == routineSlug)
+        .where((sch) => sch.routineSlug == canonical)
         .toList();
 
     if (existing.isNotEmpty) {
@@ -160,13 +172,13 @@ class HiveWorkoutRepo {
     }
 
     final sch = WorkoutRoutineSchedule(
-      routineSlug: routineSlug,
+      routineSlug: canonical,
       blockSequence: sequence.map((b) => b.slug).toList(),
       repetitionSchema: repetitionSchema,
     );
 
-    // use a slug do routine como chave
-    routineScheduleBox.put(routineSlug, sch);
+    // usa a slug da rotina como chave
+    routineScheduleBox.put(canonical, sch);
     return sch;
   }
 }

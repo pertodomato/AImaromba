@@ -22,11 +22,11 @@ String toSlug(String name, {List<String> hints = const []}) {
       final c = String.fromCharCode(r);
       buf.write(map[c] ?? c);
     }
-    return buf
-        .toString()
-        .toLowerCase()
-        .replaceAll(RegExp(r'_+'), '_')
-        .replaceAll(RegExp(r'^_|_$'), '');
+    final lowered = buf.toString().toLowerCase();
+    final step1 = lowered.replaceAll(RegExp(r'[^a-z0-9]+'), '_'); // troca não-[a-z0-9] por "_"
+    final step2 = step1.replaceAll(RegExp(r'_+'), '_');            // comprime "_"
+    final step3 = step2.replaceAll(RegExp(r'^_+|_+$'), '');        // trim "_"
+    return step3;
   }
 
   final base = normalize(name);
