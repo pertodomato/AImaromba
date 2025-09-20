@@ -28,38 +28,6 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadMuscleData());
   }
 
-  // PT -> ids aceitos pelo muscle_selector (snake_case)
-  String? _ptToGroupId(String pt) {
-    switch (pt) {
-      case 'peitoral':
-        return 'chest';
-      case 'deltoide_anterior':
-      case 'deltoide anterior':
-        return 'anterior_deltoid';
-      case 'tríceps':
-      case 'triceps':
-        return 'triceps';
-      case 'quadríceps':
-      case 'quadriceps':
-        return 'quadriceps';
-      case 'glúteos':
-      case 'gluteos':
-        return 'glutes';
-      case 'lombar':
-        return 'lower_back';
-      case 'posterior_coxa':
-      case 'posterior coxa':
-        return 'hamstrings';
-      case 'dorsal':
-        return 'lats';
-      case 'bíceps':
-      case 'biceps':
-        return 'biceps';
-      default:
-        return null;
-    }
-  }
-
   void _loadMuscleData() {
     final hive = context.read<HiveService>();
     final bench = context.read<BenchmarksService>();
@@ -72,25 +40,24 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
 
     final byBench = bench.computeUserBenchmarks(profile, allExercises, sets);
 
-    // Somatório de “força relativa” por grupo
+    // Somatório de “força relativa” por grupo (usando APENAS IDs canônicos)
     final score = <String, double>{};
-    void acc(List<String> musclesPt, double pct) {
+    void acc(List<String> muscles, double pct) {
       if (pct <= 0) return;
-      for (final pt in musclesPt) {
-        final id = _ptToGroupId(pt);
-        if (id != null && isValidGroupId(id)) {
+      for (final id in muscles) {
+        if (isValidGroupId(id)) {
           score[id] = (score[id] ?? 0) + pct;
         }
       }
     }
 
-    acc(['peitoral', 'deltoide_anterior', 'tríceps'],
+    acc(['chest', 'anterior_deltoid', 'triceps'],
         byBench['supino_masculino']?.percentile ?? 0);
-    acc(['quadríceps', 'glúteos', 'lombar'],
+    acc(['quadriceps', 'glutes', 'lower_back'],
         byBench['agachamento_masculino']?.percentile ?? 0);
-    acc(['lombar', 'glúteos', 'posterior_coxa'],
+    acc(['lower_back', 'glutes', 'hamstrings'],
         byBench['terra_masculino']?.percentile ?? 0);
-    acc(['dorsal', 'bíceps'],
+    acc(['lats', 'biceps'],
         byBench['barra_fixa_masculino']?.percentile ?? 0);
 
     if (score.isEmpty) {
@@ -129,7 +96,7 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
               child: MusclePickerMap(
                 map: Maps.BODY,
                 isEditing: false,
-                initialSelectedGroups: _highlightGroups,
+                initialSelectedGroups: _highlightGroups, // IDs canônicos
                 onChanged: (_) {}, // somente visual
               ),
             ),
@@ -148,10 +115,11 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
                       style: Theme.of(context).textTheme.titleLarge),
                   TextButton.icon(
                     onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                const WorkoutSessionCreationScreen())),
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const WorkoutSessionCreationScreen(),
+                      ),
+                    ),
                     icon: const Icon(Icons.add),
                     label: const Text('Nova Sessão'),
                   )
@@ -160,8 +128,9 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
             ),
             if (sessions.isEmpty)
               const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Text('Nenhuma sessão criada.'))
+                padding: EdgeInsets.all(8),
+                child: Text('Nenhuma sessão criada.'),
+              )
             else
               ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -178,18 +147,20 @@ class _WorkoutsHubScreenState extends State<WorkoutsHubScreen> {
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.add),
-                      label: const Text('Criar Novo Exercício'),
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) =>
-                                  const ExerciseCreationScreen())),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text('Criar Novo Exercício'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ExerciseCreationScreen(),
+                      ),
                     ),
-                  ]),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

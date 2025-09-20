@@ -1,26 +1,31 @@
 // lib/features/3_planner/infrastructure/persistence/hive_diet_repo.dart
 import 'package:hive/hive.dart';
-import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/models/meal.dart';
+import 'package:fitapp/core/models/diet_day.dart';
 import 'package:fitapp/core/models/diet_block.dart';
+import 'package:fitapp/core/models/diet_routine.dart';
+import 'package:fitapp/core/models/diet_routine_schedule.dart';
+import 'package:fitapp/core/models/diet_day_plan.dart';
+import 'package:fitapp/core/models/diet_day_meal_plan_item.dart';
 import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
 class HiveDietRepo {
   final Box<Meal> mealBox;
-  final Box<DietDay> dayBox;
-  final Box<DietRoutine> routineBox;
-  final Box<DietBlock> blockBox;
-
-  // Caso use planos diários detalhados (opcionais):
-  final Box? planBox; // DietDayPlan
-  final Box? planItemBox; // DietDayMealPlanItem
+  final Box<DietDay> dietDayBox;
+  final Box<DietBlock> dietBlockBox;
+  final Box<DietRoutine> dietRoutineBox;
+  final Box<DietRoutineSchedule> dietRoutineScheduleBox;
+  final Box<DietDayPlan> dayPlanBox;
+  final Box<DietDayMealPlanItem> planItemBox;
 
   HiveDietRepo({
     required this.mealBox,
-    required this.dayBox,
-    required this.routineBox,
-    required this.blockBox,
-    this.planBox,
-    this.planItemBox,
+    required this.dietDayBox,
+    required this.dietBlockBox,
+    required this.dietRoutineBox,
+    required this.dietRoutineScheduleBox,
+    required this.dayPlanBox,
+    required this.planItemBox,
   });
 
   // ---------- Meals ----------
@@ -36,8 +41,7 @@ class HiveDietRepo {
     for (final m in mealBox.values) {
       if (toSlug(m.name) == s) return m;
     }
-
-    final meal = Meal(
+    final m = Meal(
       id: s,
       name: name,
       description: description,
@@ -46,53 +50,48 @@ class HiveDietRepo {
       carbsPer100g: cPer100.toDouble(),
       fatPer100g: fPer100.toDouble(),
     );
-
-    mealBox.put(meal.id, meal);
-    return meal;
+    mealBox.put(m.id, m);
+    return m;
   }
 
-  // ---------- DietDay ----------
+  // ---------- DietDay (template do dia) ----------
   DietDay upsertDietDay({
     required String name,
     required String description,
-    required List<Meal> structure, // estrutura genérica (sem quantidades)
+    required List<Meal> structure, // catálogo base do dia (reutilizável)
   }) {
     final s = toSlug(name);
-    for (final d in dayBox.values) {
+    for (final d in dietDayBox.values) {
       if (toSlug(d.name) == s) return d;
     }
-
-    // Model DietDay não tem lista de refeições; mantenha simples.
-    final ddy = DietDay(
+    final day = DietDay(
       id: s,
       name: name,
       description: description,
+      // Ajuste conforme seu modelo (structure/meals). Aqui usamos 'structure'.
+      structure: HiveList<Meal>(mealBox, objects: structure),
     );
-
-    dayBox.put(ddy.id, ddy);
-    return ddy;
+    dietDayBox.put(day.id, day);
+    return day;
   }
 
   // ---------- DietBlock ----------
   DietBlock upsertDietBlock({
     required String name,
     required String description,
-    required List<DietDay> daysOrdered,
+    required List<DietDay> daysOrdered, // 1–15
   }) {
     final s = toSlug(name);
-    for (final b in blockBox.values) {
+    for (final b in dietBlockBox.values) {
       if (b.slug == s) return b;
     }
-
     final block = DietBlock(
       slug: s,
       name: name,
       description: description,
-      // Guarda apenas os slugs/ids ordenados dos dias
       daySlugs: daysOrdered.map((d) => toSlug(d.name)).toList(),
     );
-
-    blockBox.put(block.slug, block);
+    dietBlockBox.put(block.slug, block);
     return block;
   }
 
@@ -101,26 +100,51 @@ class HiveDietRepo {
     required String name,
     required String description,
     required String repetitionSchema,
-    required List<DietBlock> sequence, // mantido para futura associação externa
   }) {
     final s = toSlug(name);
-    for (final r in routineBox.values) {
-      if (toSlug(r.name) == s) {
-        return r;
-      }
+    for (final r in dietRoutineBox.values) {
+      if (toSlug(r.name) == s) return r;
     }
-
-    // Model DietRoutine exige startDate e HiveList<DietDay> days.
     final r = DietRoutine(
       id: s,
       name: name,
       description: description,
-      startDate: DateTime.now(),
+      // Se seu modelo não tiver esses campos, remova-os aqui.
       repetitionSchema: repetitionSchema,
-      days: HiveList<DietDay>(dayBox, objects: const []),
+      // NÃO preenche days na rotina (usa DietRoutineSchedule)
+    );
+    dietRoutineBox.put(r.id, r);
+    return r;
+  }
+
+  // ---------- DietRoutineSchedule ----------
+  DietRoutineSchedule upsertDietRoutineSchedule({
+    required String routineSlug,
+    required String repetitionSchema,
+    required List<DietBlock> sequence,
+  }) {
+    final canonical = toSlug(routineSlug);
+
+    // 1 rotina → 1 schedule
+    final existing = dietRoutineScheduleBox.values
+        .where((sch) => sch.routineSlug == canonical)
+        .toList();
+
+    if (existing.isNotEmpty) {
+      final sch = existing.first;
+      sch.blockSequence = sequence.map((b) => b.slug).toList();
+      sch.repetitionSchema = repetitionSchema;
+      sch.save();
+      return sch;
+    }
+
+    final sch = DietRoutineSchedule(
+      routineSlug: canonical,
+      blockSequence: sequence.map((b) => b.slug).toList(),
+      repetitionSchema: repetitionSchema,
     );
 
-    routineBox.put(r.id, r);
-    return r;
+    dietRoutineScheduleBox.put(canonical, sch);
+    return sch;
   }
 }

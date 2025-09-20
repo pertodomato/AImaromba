@@ -1,18 +1,11 @@
 // lib/features/3_planner/infrastructure/persistence/hive_workout_repo.dart
 import 'package:hive/hive.dart';
-
 import 'package:fitapp/core/models/models.dart';
+import 'package:fitapp/core/models/workout_block.dart';
+import 'package:fitapp/core/models/workout_routine_schedule.dart';
 import 'package:fitapp/core/utils/muscle_validation.dart';
 import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
-/// Repositório Hive para criar/atualizar entidades de treino.
-/// Compatível com os modelos atuais:
-/// - Exercise(id,name,description,primaryMuscles,secondaryMuscles,relevantMetrics)
-/// - WorkoutSession(id,name,description,exercises: HiveList<Exercise>)
-/// - WorkoutDay(id,name,description,sessions: HiveList<WorkoutSession>)
-/// - WorkoutBlock(slug,name,description,daySlugs)
-/// - WorkoutRoutine(id,name,description,startDate,repetitionSchema,days: HiveList<WorkoutDay>)
-/// - WorkoutRoutineSchedule(routineSlug,blockSequence,repetitionSchema)
 class HiveWorkoutRepo {
   final Box<Exercise> exBox;
   final Box<WorkoutSession> sessBox;
@@ -38,9 +31,8 @@ class HiveWorkoutRepo {
     required List<String> secondary,
     required List<String> metrics,
   }) {
-    // Normaliza, valida e remove interseções duplicadas
-    final primSet = primary.where(isValidGroupId).toSet();
-    final secSet = secondary.where(isValidGroupId).toSet()..removeAll(primSet);
+    final prim = primary.where(isValidGroupId).toList();
+    final sec = secondary.where(isValidGroupId).toList();
 
     final s = toSlug(name);
     for (final e in exBox.values) {
@@ -51,9 +43,9 @@ class HiveWorkoutRepo {
       id: s,
       name: name,
       description: description,
-      primaryMuscles: primSet.toList(),
-      secondaryMuscles: secSet.toList(),
-      relevantMetrics: List<String>.from(metrics),
+      primaryMuscles: prim,
+      secondaryMuscles: sec,
+      relevantMetrics: metrics,
     );
 
     exBox.put(ex.id, ex);
@@ -64,7 +56,7 @@ class HiveWorkoutRepo {
   WorkoutSession upsertSession({
     required String name,
     required String description,
-    required List<Exercise> exercises,
+    required List<Exercise> exercises, // mantido para interface
   }) {
     final s = toSlug(name);
     for (final sess in sessBox.values) {
@@ -126,7 +118,7 @@ class HiveWorkoutRepo {
     return block;
   }
 
-  // ---------- Routine ----------
+  // ---------- Routine & Schedule ----------
   WorkoutRoutine upsertRoutine({
     required String name,
     required String description,
@@ -150,7 +142,6 @@ class HiveWorkoutRepo {
     return r;
   }
 
-  // ---------- Routine Schedule ----------
   WorkoutRoutineSchedule upsertRoutineSchedule({
     required String routineSlug,
     required String repetitionSchema,

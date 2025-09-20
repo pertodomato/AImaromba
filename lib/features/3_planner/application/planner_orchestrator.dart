@@ -1,6 +1,7 @@
 // lib/features/3_planner/application/planner_orchestrator.dart
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:fitapp/core/models/diet_block.dart';
 import 'package:fitapp/core/models/diet_day.dart';
@@ -97,17 +98,17 @@ class PlannerOrchestrator {
     );
     yield const ProgressEvent('Rotina definida. Gerando blocos...', 0.15);
 
-    final routineName = routineJson['routine']['name'] as String;
-    final routineDesc = routineJson['routine']['description'] as String;
+    final routineName = (routineJson['routine']?['name'] ?? '').toString();
+    final routineDesc = (routineJson['routine']?['description'] ?? '').toString();
     final repetitionSchema =
-        routineJson['routine']['repetition_schema'] as String;
+        (routineJson['routine']?['repetition_schema'] ?? 'Semanal').toString();
     final blockPlaceholders = List<String>.from(
-      routineJson['routine']['block_sequence_placeholders'] ?? const [],
+      routineJson['routine']?['block_sequence_placeholders'] ?? const [],
     );
 
     // cria/garante a rotina (modelo exige repetitionSchema)
     final routine = workoutRepo.upsertRoutine(
-      name: routineName,
+      name: routineName.isNotEmpty ? routineName : 'routine',
       description: routineDesc,
       repetitionSchema: repetitionSchema,
     );
@@ -118,13 +119,13 @@ class PlannerOrchestrator {
     int doneBlocks = 0;
 
     for (final b in blocks) {
-      final ph = b['placeholder_id'] as String;
-      final blockName = b['name'] as String;
-      final blockDesc = b['description'] as String;
+      final ph = (b['placeholder_id'] ?? '').toString();
+      final blockName = (b['name'] ?? 'bloco').toString();
+      final blockDesc = (b['description'] ?? '').toString();
 
       yield ProgressEvent(
         'Detalhando bloco "$blockName"...',
-        0.2 + 0.4 * (doneBlocks / (blocks.isEmpty ? 1 : blocks.length)),
+        0.2 + 0.4 * (doneBlocks / max(1, blocks.length)),
       );
 
       // 2.1) Block -> Days (1..15)
@@ -145,7 +146,7 @@ class PlannerOrchestrator {
 
         if (isRest) {
           final dayRest = workoutRepo.upsertDay(
-            name: dayMeta['name'] as String,
+            name: (dayMeta['name'] ?? 'descanso').toString(),
             description: (dayMeta['description'] as String?) ?? 'Descanso',
             sessions: const <WorkoutSession>[],
           );
@@ -156,42 +157,88 @@ class PlannerOrchestrator {
         // 3) Day -> Sessions + Exercises
         final daySessions = await llm.getWorkoutDaySessions(
           dayPlaceholder: {
-            'day_id': dayMeta['placeholder_id'],
-            'name': dayMeta['name'],
-            'description': dayMeta['description'],
-          }.map((k, v) => MapEntry(k.toString(), (v ?? '').toString())),
+            'day_id': (dayMeta['placeholder_id'] ?? '').toString(),
+            'name': (dayMeta['name'] ?? 'Dia').toString(),
+            'description': (dayMeta['description'] ?? '').toString(),
+          },
           existingSessions: const [],
           existingExercises: const [],
           validMuscles: kValidGroupIds.toList(),
         );
 
         final List<WorkoutSession> sessionsList = [];
+
+        // 3.a) Reusar sessões por nome
+        final reuseSessions =
+            List<String>.from(daySessions['reuse_sessions_by_name'] ?? const []);
+        for (final sName in reuseSessions) {
+          final sSlug = toSlug(sName);
+          final reused = workoutRepo.findSessionBySlug?.call(sSlug);
+          if (reused != null) sessionsList.add(reused);
+        }
+
+        // 3.b) Criar/atualizar sessões novas
         final sessionsToCreate =
             (daySessions['sessions_to_create'] as List?) ?? const [];
 
         for (final sess in sessionsToCreate) {
-          final List<Exercise> newExercises = [];
+          final List<Exercise> exercisesForSession = [];
 
-          // Aceita "exercises" ou "exercises_to_create"
+          // 3.b.1) Reusar exercícios por nome
+          final reuseEx =
+              List<String>.from(sess['reuse_exercises_by_name'] ?? const []);
+          for (final exName in reuseEx) {
+            final exSlug = toSlug(exName);
+            final exObj = workoutRepo.findExerciseBySlug?.call(exSlug);
+            if (exObj != null) exercisesForSession.add(exObj);
+          }
+
+          // 3.b.2) Exercícios a criar (aceita "exercises" ou "exercises_to_create")
           final rawList =
               (sess['exercises'] ?? sess['exercises_to_create'] ?? const [])
                   as List;
+
           for (final ex in rawList) {
+            Map<String, dynamic> exMap = {};
+            if (ex is Map) {
+              exMap = ex.map((k, v) => MapEntry(k.toString(), v));
+            }
+
+            // Se vier apenas "hint", pedir detalhamento ao LLM
+            if ((!exMap.containsKey('name') || (exMap['name'] ?? '').toString().isEmpty) &&
+                exMap.containsKey('hint')) {
+              final detailed = await llm.getExerciseFromHint(
+                hint: {'hint': exMap['hint']},
+                validMuscles: kValidGroupIds.toList(),
+              );
+              exMap = {
+                'name': detailed['name'] ?? 'Exercício',
+                'description': detailed['description'] ?? '',
+                'primary_muscles': List<String>.from(detailed['primary_muscles'] ?? const []),
+                'secondary_muscles': List<String>.from(detailed['secondary_muscles'] ?? const []),
+                'relevant_metrics': List<String>.from(detailed['relevant_metrics'] ?? const []),
+              };
+            }
+
             final exercise = workoutRepo.upsertExercise(
-              name: ex['name'] as String,
-              description: (ex['description'] as String?) ?? '',
-              primary: List<String>.from(ex['primary_muscles'] ?? const []),
-              secondary: List<String>.from(ex['secondary_muscles'] ?? const []),
-              metrics:
-                  List<String>.from(ex['relevant_metrics'] ?? const []),
+              name: (exMap['name'] ?? 'Exercício').toString(),
+              description: (exMap['description'] ?? '').toString(),
+              primary: List<String>.from(exMap['primary_muscles'] ?? const [])
+                  .where(isValidGroupId)
+                  .toList(),
+              secondary: List<String>.from(exMap['secondary_muscles'] ?? const [])
+                  .where(isValidGroupId)
+                  .toList(),
+              metrics: List<String>.from(exMap['relevant_metrics'] ?? const []),
             );
-            newExercises.add(exercise);
+            exercisesForSession.add(exercise);
           }
 
+          // 3.b.3) Criar sessão
           final session = workoutRepo.upsertSession(
             name: (sess['name'] ?? 'Sessão').toString(),
             description: (sess['description'] ?? '').toString(),
-            exercises: newExercises,
+            exercises: exercisesForSession,
           );
           sessionsList.add(session);
         }
@@ -259,12 +306,20 @@ class PlannerOrchestrator {
     yield const ProgressEvent(
         'Rotina de dieta definida. Gerando blocos...', 0.15);
 
-    final rName = routineJson['diet_routine']['name'] as String;
-    final rDesc = routineJson['diet_routine']['description'] as String;
+    final rName = (routineJson['diet_routine']?['name'] ?? 'diet_plan').toString();
+    final rDesc = (routineJson['diet_routine']?['description'] ?? '').toString();
     final repetition =
-        routineJson['diet_routine']['repetition_schema'] as String;
+        (routineJson['diet_routine']?['repetition_schema'] ?? 'Semanal').toString();
     final blockPHs = List<String>.from(
-      routineJson['diet_routine']['block_sequence_placeholders'] ?? const [],
+      routineJson['diet_routine']?['block_sequence_placeholders'] ?? const [],
+    );
+
+    // cria/garante a rotina base (sem days; o schedule guarda a sequência)
+    final routine = dietRepo.upsertDietRoutine(
+      name: rName,
+      description: rDesc,
+      repetitionSchema: repetition,
+      sequence: const [], // ignorado internamente se você usar schedule separado
     );
 
     final Map<String, DietBlock> blocksCreated = {};
@@ -272,13 +327,13 @@ class PlannerOrchestrator {
     int doneBlocks = 0;
 
     for (final b in blocks) {
-      final ph = b['placeholder_id'] as String;
-      final bName = b['name'] as String;
-      final bDesc = b['description'] as String;
+      final ph = (b['placeholder_id'] ?? '').toString();
+      final bName = (b['name'] ?? 'semana_tipo').toString();
+      final bDesc = (b['description'] ?? '').toString();
 
       yield ProgressEvent(
         'Detalhando bloco de dieta "$bName"...',
-        0.2 + 0.5 * (doneBlocks / (blocks.isEmpty ? 1 : blocks.length)),
+        0.2 + 0.5 * (doneBlocks / max(1, blocks.length)),
       );
 
       // 2) Block -> DietDays
@@ -296,10 +351,10 @@ class PlannerOrchestrator {
       final daysToCreate = (blockStruct['days_to_create'] as List?) ?? const [];
 
       for (final d in daysToCreate) {
-        // Estrutura base do dia (catálogo simples para o exemplo)
+        // Estrutura base do dia (catálogo simples de exemplos — pode ser vazia e montada só pelo plan)
         final List<Meal> baseMeals = <Meal>[
           dietRepo.upsertMeal(
-            name: 'Café Proteico Aveia',
+            name: 'cafe_proteico_aveia',
             description: 'Ovos/claras, aveia e fruta.',
             kcalPer100: 130,
             pPer100: 10,
@@ -307,7 +362,7 @@ class PlannerOrchestrator {
             fPer100: 3.5,
           ),
           dietRepo.upsertMeal(
-            name: 'Almoço Frango Arroz Feijão',
+            name: 'almoco_frango_arroz_feijao',
             description: 'Frango magro, arroz e feijão; salada.',
             kcalPer100: 135,
             pPer100: 11,
@@ -315,7 +370,7 @@ class PlannerOrchestrator {
             fPer100: 3,
           ),
           dietRepo.upsertMeal(
-            name: 'Jantar Peixe Batata Legumes',
+            name: 'jantar_peixe_batata_legumes',
             description: 'Peixe assado, batata e legumes.',
             kcalPer100: 120,
             pPer100: 12,
@@ -325,22 +380,22 @@ class PlannerOrchestrator {
         ];
 
         final dayEntity = dietRepo.upsertDietDay(
-          name: (d['name'] ?? 'Dia de Dieta').toString(),
+          name: (d['name'] ?? 'dia_de_semana').toString(),
           description: (d['description'] ?? '').toString(),
           structure: baseMeals,
         );
         days.add(dayEntity);
 
-        // 3) Day Plan com quantidades (via LLM)
-        await llm.getDietDayPlan(
+        // 3) Day Plan com quantidades (via LLM) + persistência
+        final planJson = await llm.getDietDayPlan(
           userProfile: userProfile,
           userGoal: userGoal,
           userFoodPrefs: foodPrefs,
           dietDay: {
-            'diet_day_id': d['placeholder_id'],
-            'name': d['name'],
-            'description': d['description'],
-          }.map((k, v) => MapEntry(k.toString(), (v ?? '').toString())),
+            'diet_day_id': (d['placeholder_id'] ?? '').toString(),
+            'name': (d['name'] ?? '').toString(),
+            'description': (d['description'] ?? '').toString(),
+          },
           existingMealsSummary: baseMeals
               .map((m) => {
                     'name': m.name,
@@ -352,6 +407,80 @@ class PlannerOrchestrator {
               .toList(),
           dayTargets: defaultDayTargets,
         );
+
+        // Persistir o plano do dia: cada "meal" vira um item com "grams"
+        final items = <dynamic>[];
+
+        final mealsArr = (planJson['meals'] as List?) ?? const [];
+        for (final m in mealsArr) {
+          final mealName = (m['meal_name_or_id'] ?? 'refeicao').toString();
+          final components = (m['components'] as List?) ?? const [];
+          // total dos componentes em gramas
+          final totalG = components.fold<num>(
+              0, (prev, c) => prev + (num.tryParse('${c['quantity_g']}') ?? 0));
+          // totals por refeição (se existir)
+          final mt = (m['totals'] as Map?) ?? const {};
+          final calT = num.tryParse('${mt['calories']}') ?? 0;
+          final pT = num.tryParse('${mt['protein_g']}') ?? 0;
+          final cT = num.tryParse('${mt['carbs_g']}') ?? 0;
+          final fT = num.tryParse('${mt['fat_g']}') ?? 0;
+
+          // macros por 100g do consolidado
+          double per100(num v) => totalG > 0 ? v * 100 / totalG : 0;
+          final cal100 = per100(calT);
+          final p100 = per100(pT);
+          final c100 = per100(cT);
+          final f100 = per100(fT);
+
+          final slug = toSlug(mealName);
+          var meal = dietRepo.findMealBySlug?.call(slug);
+          meal ??= dietRepo.upsertMeal(
+            name: mealName,
+            description: 'Consolidado automático do plano diário',
+            kcalPer100: cal100.toDouble(),
+            pPer100: p100.toDouble(),
+            cPer100: c100.toDouble(),
+            fPer100: f100.toDouble(),
+          );
+
+          final grams = (totalG > 0 ? totalG.toDouble() : 100.0);
+          final item = dietRepo.createPlanItem?.call(
+            meal: meal,
+            label: meal.name,
+            grams: grams,
+          );
+          if (item != null) items.add(item);
+        }
+
+        // Salvar o plano do dia (com validação simples ±5%)
+        final plan = dietRepo.upsertDietDayPlan?.call(day: dayEntity, items: items);
+
+        // Validação: comparar somas com alvo do dia
+        if (plan != null) {
+          final totals = dietRepo.computePlanTotals?.call(plan);
+          if (totals != null) {
+            bool outOfRange(num tgt, num got) {
+              if (tgt <= 0) return false;
+              final delta = (got - tgt).abs() / tgt;
+              return delta > 0.05; // 5%
+            }
+
+            final tCal = totals['calories'] ?? 0;
+            final tP = totals['protein_g'] ?? 0;
+            final tC = totals['carbs_g'] ?? 0;
+            final tF = totals['fat_g'] ?? 0;
+
+            if (outOfRange(defaultDayTargets['calories'] ?? 0, tCal) ||
+                outOfRange(defaultDayTargets['protein_g'] ?? 0, tP) ||
+                outOfRange(defaultDayTargets['carbs_g'] ?? 0, tC) ||
+                outOfRange(defaultDayTargets['fat_g'] ?? 0, tF)) {
+              dietRepo.annotatePlanNote?.call(
+                plan,
+                'Fora da tolerância ±5% — ajuste fino recomendado na próxima revisão.',
+              );
+            }
+          }
+        }
       }
 
       final block = dietRepo.upsertDietBlock(
@@ -363,19 +492,29 @@ class PlannerOrchestrator {
       doneBlocks++;
     }
 
-    // 4) DietRoutine final
+    // 4) DietRoutine final (schedule por blocks)
     final List<DietBlock> sequence = blockPHs
         .map((ph) => blocksCreated[ph])
         .where((e) => e != null)
         .cast<DietBlock>()
         .toList();
 
-    dietRepo.upsertDietRoutine(
-      name: rName,
-      description: rDesc,
-      repetitionSchema: repetition,
-      sequence: sequence, // já é List<DietBlock>
-    );
+    // Se seu repo tiver schedule separado, use-o; senão, ignore com fallback
+    if (dietRepo.upsertDietRoutineSchedule != null) {
+      dietRepo.upsertDietRoutineSchedule!(
+        routineSlug: toSlug(routine.name),
+        repetitionSchema: repetition,
+        sequence: sequence,
+      );
+    } else {
+      // fallback: atualizar rotina com sequence direto (compat)
+      dietRepo.upsertDietRoutine(
+        name: rName,
+        description: rDesc,
+        repetitionSchema: repetition,
+        sequence: sequence,
+      );
+    }
 
     yield const ProgressEvent('Dieta concluída!', 1.0);
   }

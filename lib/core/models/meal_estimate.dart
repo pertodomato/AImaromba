@@ -1,64 +1,23 @@
-// lib/models/meal_estimate.dart
-// Modelos p/ resposta dos prompts meal_from_image / meal_from_text.
+import 'package:fitapp/core/models/meal.dart' as core;
 
-import 'dart:convert';
-
-class Meal {
-  final String id;
-  final String name;
-  final String description;
-  final double caloriesPer100g;
-  final double proteinPer100g;
-  final double carbsPer100g;
-  final double fatPer100g;
-
-  const Meal({
-    required this.id,
-    required this.name,
-    required this.description,
-    required this.caloriesPer100g,
-    required this.proteinPer100g,
-    required this.carbsPer100g,
-    required this.fatPer100g,
-  });
-
-  factory Meal.fromJson(Map<String, dynamic> j) => Meal(
-        id: j['id'] as String,
-        name: j['name'] as String,
-        description: j['description'] as String? ?? '',
-        caloriesPer100g: _toD(j['calories_per_100g']),
-        proteinPer100g: _toD(j['protein_per_100g']),
-        carbsPer100g: _toD(j['carbs_per_100g']),
-        fatPer100g: _toD(j['fat_per_100g']),
-      );
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'name': name,
-        'description': description,
-        'calories_per_100g': caloriesPer100g,
-        'protein_per_100g': proteinPer100g,
-        'carbs_per_100g': carbsPer100g,
-        'fat_per_100g': fatPer100g,
-      };
-}
-
-class MealComponent {
+/// Componente estimado de um prato (usado pelos prompts meal_from_*).
+class EstimatedMealComponent {
   final String name;
   final double estimatedWeightG;
 
+  // macros por 100g (do componente)
   final double caloriesPer100g;
   final double proteinPer100g;
   final double carbsPer100g;
   final double fatPer100g;
 
-  // Totais calculados para a porção estimada
+  // totais do componente (peso aplicado)
   final double caloriesTotal;
   final double proteinTotalG;
   final double carbsTotalG;
   final double fatTotalG;
 
-  const MealComponent({
+  EstimatedMealComponent({
     required this.name,
     required this.estimatedWeightG,
     required this.caloriesPer100g,
@@ -71,18 +30,21 @@ class MealComponent {
     required this.fatTotalG,
   });
 
-  factory MealComponent.fromJson(Map<String, dynamic> j) => MealComponent(
-        name: j['name'] as String,
-        estimatedWeightG: _toD(j['estimated_weight_g']),
-        caloriesPer100g: _toD(j['calories_per_100g']),
-        proteinPer100g: _toD(j['protein_per_100g']),
-        carbsPer100g: _toD(j['carbs_per_100g']),
-        fatPer100g: _toD(j['fat_per_100g']),
-        caloriesTotal: _toD(j['calories_total']),
-        proteinTotalG: _toD(j['protein_total_g']),
-        carbsTotalG: _toD(j['carbs_total_g']),
-        fatTotalG: _toD(j['fat_total_g']),
-      );
+  factory EstimatedMealComponent.fromJson(Map<String, dynamic> json) {
+    double _d(v) => (v is num) ? v.toDouble() : double.tryParse('$v') ?? 0.0;
+    return EstimatedMealComponent(
+      name: (json['name'] ?? '').toString(),
+      estimatedWeightG: _d(json['estimated_weight_g']),
+      caloriesPer100g: _d(json['calories_per_100g']),
+      proteinPer100g: _d(json['protein_per_100g']),
+      carbsPer100g: _d(json['carbs_per_100g']),
+      fatPer100g: _d(json['fat_per_100g']),
+      caloriesTotal: _d(json['calories_total']),
+      proteinTotalG: _d(json['protein_total_g']),
+      carbsTotalG: _d(json['carbs_total_g']),
+      fatTotalG: _d(json['fat_total_g']),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'name': name,
@@ -96,33 +58,17 @@ class MealComponent {
         'carbs_total_g': carbsTotalG,
         'fat_total_g': fatTotalG,
       };
-
-  /// Recalcula os totais a partir de per_100g e peso estimado.
-  MealComponent recomputeTotals() {
-    final f = estimatedWeightG / 100.0;
-    return MealComponent(
-      name: name,
-      estimatedWeightG: estimatedWeightG,
-      caloriesPer100g: caloriesPer100g,
-      proteinPer100g: proteinPer100g,
-      carbsPer100g: carbsPer100g,
-      fatPer100g: fatPer100g,
-      caloriesTotal: _round1(caloriesPer100g * f),
-      proteinTotalG: _round1(proteinPer100g * f),
-      carbsTotalG: _round1(carbsPer100g * f),
-      fatTotalG: _round1(fatPer100g * f),
-    );
-  }
 }
 
-class PlateEstimate {
+/// Totais estimados do prato consolidado.
+class EstimatedPlateTotals {
   final double totalWeightG;
   final double caloriesTotal;
   final double proteinTotalG;
   final double carbsTotalG;
   final double fatTotalG;
 
-  const PlateEstimate({
+  EstimatedPlateTotals({
     required this.totalWeightG,
     required this.caloriesTotal,
     required this.proteinTotalG,
@@ -130,13 +76,16 @@ class PlateEstimate {
     required this.fatTotalG,
   });
 
-  factory PlateEstimate.fromJson(Map<String, dynamic> j) => PlateEstimate(
-        totalWeightG: _toD(j['total_weight_g']),
-        caloriesTotal: _toD(j['calories_total']),
-        proteinTotalG: _toD(j['protein_total_g']),
-        carbsTotalG: _toD(j['carbs_total_g']),
-        fatTotalG: _toD(j['fat_total_g']),
-      );
+  factory EstimatedPlateTotals.fromJson(Map<String, dynamic> json) {
+    double _d(v) => (v is num) ? v.toDouble() : double.tryParse('$v') ?? 0.0;
+    return EstimatedPlateTotals(
+      totalWeightG: _d(json['total_weight_g']),
+      caloriesTotal: _d(json['calories_total']),
+      proteinTotalG: _d(json['protein_total_g']),
+      carbsTotalG: _d(json['carbs_total_g']),
+      fatTotalG: _d(json['fat_total_g']),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'total_weight_g': totalWeightG,
@@ -145,70 +94,68 @@ class PlateEstimate {
         'carbs_total_g': carbsTotalG,
         'fat_total_g': fatTotalG,
       };
-
-  /// Soma simples de componentes.
-  static PlateEstimate fromComponents(List<MealComponent> comps) {
-    final w = comps.fold<double>(0, (a, c) => a + c.estimatedWeightG);
-    final cal = comps.fold<double>(0, (a, c) => a + c.caloriesTotal);
-    final p = comps.fold<double>(0, (a, c) => a + c.proteinTotalG);
-    final ch = comps.fold<double>(0, (a, c) => a + c.carbsTotalG);
-    final f = comps.fold<double>(0, (a, c) => a + c.fatTotalG);
-    return PlateEstimate(
-      totalWeightG: _round1(w),
-      caloriesTotal: _round1(cal),
-      proteinTotalG: _round1(p),
-      carbsTotalG: _round1(ch),
-      fatTotalG: _round1(f),
-    );
-  }
 }
 
+/// Resposta completa vinda do LLM para criação de um alimento consolidado.
+///
+/// Observação: o campo [meal] usa **core.Meal** (modelo Hive principal).
 class MealEstimateResponse {
-  final Meal meal;
-  final List<MealComponent> components;
-  final PlateEstimate plateEstimate;
+  final core.Meal meal;
+  final List<EstimatedMealComponent> components;
+  final EstimatedPlateTotals plateEstimate;
 
-  const MealEstimateResponse({
+  MealEstimateResponse({
     required this.meal,
     required this.components,
     required this.plateEstimate,
   });
 
-  factory MealEstimateResponse.fromJson(Map<String, dynamic> j) =>
-      MealEstimateResponse(
-        meal: Meal.fromJson(j['meal'] as Map<String, dynamic>),
-        components: (j['components'] as List<dynamic>)
-            .map((e) => MealComponent.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        plateEstimate:
-            PlateEstimate.fromJson(j['plate_estimate'] as Map<String, dynamic>),
-      );
+  /// Constrói a partir do JSON do prompt (chaves: "meal", "components", "plate_estimate").
+  ///
+  /// Mapeia diretamente os macros por 100g para o modelo Hive `core.Meal`.
+  factory MealEstimateResponse.fromJson(Map<String, dynamic> json) {
+    final mealJson = (json['meal'] as Map?)?.cast<String, dynamic>() ?? {};
+    double _d(v) => (v is num) ? v.toDouble() : double.tryParse('$v') ?? 0.0;
 
-  Map<String, dynamic> toJson() => {
-        'meal': meal.toJson(),
-        'components': components.map((e) => e.toJson()).toList(),
-        'plate_estimate': plateEstimate.toJson(),
-      };
+    final coreMeal = core.Meal(
+      // Se o seu core.Meal não tiver `id` no construtor, remova esta linha.
+      // id: (mealJson['id'] ?? '').toString(),
+      name: (mealJson['name'] ?? '').toString(),
+      description: (mealJson['description'] ?? '').toString(),
+      caloriesPer100g: _d(mealJson['calories_per_100g']),
+      proteinPer100g: _d(mealJson['protein_per_100g']),
+      carbsPer100g: _d(mealJson['carbs_per_100g']),
+      fatPer100g: _d(mealJson['fat_per_100g']),
+    );
 
-  /// Recalcula plate_estimate a partir dos componentes (útil p/ validar/normalizar).
-  MealEstimateResponse recomputePlateFromComponents() {
-    final recomputed =
-        PlateEstimate.fromComponents(components.map((c) => c.recomputeTotals()).toList());
+    final comps = ((json['components'] as List?) ?? const [])
+        .map((e) =>
+            EstimatedMealComponent.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+
+    final plate = EstimatedPlateTotals.fromJson(
+      (json['plate_estimate'] as Map?)?.cast<String, dynamic>() ?? const {},
+    );
+
     return MealEstimateResponse(
-      meal: meal,
-      components: components,
-      plateEstimate: recomputed,
+      meal: coreMeal,
+      components: comps,
+      plateEstimate: plate,
     );
   }
 
-  static MealEstimateResponse parse(String jsonStr) =>
-      MealEstimateResponse.fromJson(jsonDecode(jsonStr) as Map<String, dynamic>);
+  Map<String, dynamic> toJson() => {
+        'meal': {
+          // Se `core.Meal` possuir `id`, inclua aqui.
+          // 'id': meal.id,
+          'name': meal.name,
+          'description': meal.description,
+          'calories_per_100g': meal.caloriesPer100g,
+          'protein_per_100g': meal.proteinPer100g,
+          'carbs_per_100g': meal.carbsPer100g,
+          'fat_per_100g': meal.fatPer100g,
+        },
+        'components': components.map((e) => e.toJson()).toList(),
+        'plate_estimate': plateEstimate.toJson(),
+      };
 }
-
-double _toD(dynamic v) {
-  if (v is int) return v.toDouble();
-  if (v is double) return v;
-  return double.parse(v.toString());
-}
-
-double _round1(double x) => (x * 10).round() / 10.0;

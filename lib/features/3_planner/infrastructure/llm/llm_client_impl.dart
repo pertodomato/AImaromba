@@ -37,7 +37,7 @@ class LLMClientImpl {
       vars: {
         'user_profile': jsonEncode(userProfile),
         'user_answers': jsonEncode(userAnswers),
-        'existing_workout_days': jsonEncode(existingBlocks), // mantém compatível com seu prompt
+        'existing_blocks': jsonEncode(existingBlocks),
       },
     );
   }
@@ -96,7 +96,7 @@ class LLMClientImpl {
       vars: {
         'user_profile': jsonEncode(userProfile),
         'user_answers': jsonEncode(userAnswers),
-        'existing_diet_days': jsonEncode(existingDietBlocks), // compatível com seu prompt
+        'existing_diet_blocks': jsonEncode(existingDietBlocks),
       },
     );
   }

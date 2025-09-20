@@ -1,0 +1,103 @@
+SYSTEM: Detalhe um BLOCK de **DIETA** (1–15 dias) em **DIET DAYS** reutilizáveis.
+
+IDIOMA: Português do Brasil (PT-BR).
+SAÍDA: **EXCLUSIVAMENTE** um objeto JSON válido (sem comentários, sem cercas ```).
+CONSISTÊNCIA: nomes e placeholders em snake_case estável.
+
+ENTRADAS:
+- Diet Block (placeholder): {diet_block_placeholder_json}
+  • Ex.: {"placeholder_id":"semana_tipo_1","name":"Semana Tipo 1","description":"Padrão de corte leve"}
+- Diet Days já existentes no banco (opcional): {existing_diet_days}
+  • Ex.: [{"name":"Dia de Semana","slug":"dia_de_semana"},{"name":"Fim de Semana","slug":"fim_de_semana"}]
+- Preferências alimentares do usuário (opcional): {user_food_prefs}
+  • Ex.: ["frango","arroz","aveia","frutas"]
+
+OBJETIVO:
+Definir **quais DIET DAYS compõem o block** (entre 1 e 15 entradas), com nomes e descrições claros, prontos para reutilização e persistência.
+Este prompt **NÃO** decide quantidades de comida; isso será feito depois por **diet_get_day_plan.txt**.
+
+REGRAS:
+1) Gere de **1 a 15** items em "days_to_create". Menos de 1 ou mais de 15 é inválido.
+2) Cada item precisa de:
+   - "placeholder_id": identificador estável em snake_case (ex.: "dia_semana", "fim_semana"). Não repetir.
+   - "name": rótulo amigável (ex.: "Dia de Semana", "Fim de Semana").
+   - "description": objetivo/resumo do dia (ex.: “Regrado com proteína alta e carbo moderado”).
+3) **Reutilize** days já existentes quando fizer sentido (match por nome/propósito). Liste-os em "reuse_days_by_name".
+4) **Sem duplicatas**: se propor um dia com o mesmo propósito e nome que já existe, use reuso.
+5) Varie de forma prática:
+   - Semana típica: normalmente 2–4 tipos (ex.: “Dia de Semana”, “Fim de Semana”, “Refeição Livre”, “Refeed”).
+   - Ciclos (ex.: 10/4 déficit/manutenção): podem ser 2–4 tipos (“Déficit A”, “Déficit B”, “Manutenção A”, “Manutenção B”).
+6) **NÃO** inclua metas numéricas (kcal/macros) aqui; apenas a **ideia** do dia. Quantidades virão em diet_get_day_plan.
+7) Considere **user_food_prefs** apenas para orientar a descrição (ex.: “preferir frango/ovos/aveia no café”), sem engessar marcas.
+8) **JSON estrito**: nenhum texto fora do objeto.
+
+FORMATO DE SAÍDA (ESTRITO):
+{
+  "diet_block_id": "string",                // deve repetir o placeholder_id do block de entrada
+  "days_to_create": [
+    {
+      "placeholder_id": "string_snake_case",
+      "name": "string",
+      "description": "string curta e objetiva"
+    }
+  ],
+  "reuse_days_by_name": ["Nome já existente 1"]
+}
+
+EXEMPLO 1 — Semana com fim de semana flexível
+ENTRADA (resumo):
+- diet_block_placeholder_json = {"placeholder_id":"semana_tipo_1","name":"Semana Tipo 1","description":"Padrão de corte leve"}
+- existing_diet_days = []
+- user_food_prefs = ["frango","arroz","aveia","frutas"]
+
+SAÍDA:
+{
+  "diet_block_id": "semana_tipo_1",
+  "days_to_create": [
+    {
+      "placeholder_id": "dia_semana",
+      "name": "Dia de Semana",
+      "description": "Regrado: proteína alta, carbo moderado, foco em saciedade e praticidade."
+    },
+    {
+      "placeholder_id": "fim_semana",
+      "name": "Fim de Semana",
+      "description": "1 refeição mais flexível; manter proteína adequada e vegetais."
+    }
+  ],
+  "reuse_days_by_name": []
+}
+
+EXEMPLO 2 — Ciclo 10/4 (Déficit/Manutenção)
+ENTRADA (resumo):
+- diet_block_placeholder_json = {"placeholder_id":"dez_deficit_quatro_manutencao","name":"10/4","description":"10 dias de déficit + 4 de manutenção"}
+- existing_diet_days = [{"name":"Dia de Semana","slug":"dia_de_semana"}]
+- user_food_prefs = ["peixe","batata","legumes","frutas"]
+
+SAÍDA:
+{
+  "diet_block_id": "dez_deficit_quatro_manutencao",
+  "days_to_create": [
+    {
+      "placeholder_id": "deficit_a",
+      "name": "Déficit A",
+      "description": "Déficit moderado; proteína alta; carbo moderado; fibras 25–35 g/dia."
+    },
+    {
+      "placeholder_id": "deficit_b",
+      "name": "Déficit B",
+      "description": "Déficit moderado com variação de carbo (refeições mais volumosas em vegetais)."
+    },
+    {
+      "placeholder_id": "manutencao_a",
+      "name": "Manutenção A",
+      "description": "Calorias próximas da manutenção; carbo um pouco maior em torno do treino."
+    },
+    {
+      "placeholder_id": "manutencao_b",
+      "name": "Manutenção B",
+      "description": "Manutenção com foco em saciedade e praticidade (ex.: peixe + batata + legumes)."
+    }
+  ],
+  "reuse_days_by_name": ["Dia de Semana"]
+}
