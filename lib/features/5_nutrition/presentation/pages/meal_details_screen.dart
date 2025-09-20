@@ -1,5 +1,3 @@
-// lib/features/5_nutrition/presentation/pages/meal_details_screen.dart
-
 import 'dart:convert';
 import 'dart:io';
 import 'package:fl_chart/fl_chart.dart';
@@ -26,7 +24,7 @@ class MealDetailsScreen extends StatefulWidget {
 
 class _MealDetailsScreenState extends State<MealDetailsScreen> {
   int? _touchedIndex;
-  List<est.MealComponent> _components = [];
+  List<est.EstimatedMealComponent> _components = [];
 
   @override
   void initState() {
@@ -38,13 +36,16 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
     if (widget.aiResponseJson == null) return;
     try {
       final json = jsonDecode(widget.aiResponseJson!);
-      final compList = (json['components'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
+      final compList =
+          (json['components'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
       setState(() {
-        _components = compList.map((e) => est.MealComponent.fromJson(e)).toList();
+        _components = compList
+            .map((e) => est.EstimatedMealComponent.fromJson(e))
+            .toList();
       });
     } catch (e) {
+      // ignore: avoid_print
       print("Erro ao parsear componentes da refeição: $e");
-      // Silenciosamente ignora o erro, a lista de componentes apenas não aparecerá
     }
   }
 
@@ -93,7 +94,8 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
           _buildSummaryCard(totalCalories, totalProteinG, totalCarbsG, totalFatG),
           if (_components.isNotEmpty) ...[
             const SizedBox(height: 24),
-            Text('Componentes Identificados', style: Theme.of(context).textTheme.titleMedium),
+            Text('Componentes Identificados',
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
             _buildComponentsCard(),
           ],
@@ -102,8 +104,12 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
     );
   }
 
-  Widget _buildPieChart(double totalCalories, double proteinCalories, double carbsCalories, double fatCalories) {
-    // Evita divisão por zero se não houver calorias
+  Widget _buildPieChart(
+    double totalCalories,
+    double proteinCalories,
+    double carbsCalories,
+    double fatCalories,
+  ) {
     final safeTotalCalories = totalCalories > 0 ? totalCalories : 1.0;
 
     return Card(
@@ -122,7 +128,8 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
                       _touchedIndex = -1;
                       return;
                     }
-                    _touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                    _touchedIndex =
+                        pieTouchResponse.touchedSection!.touchedSectionIndex;
                   });
                 },
               ),
@@ -132,19 +139,22 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
               sections: [
                 _buildPieSection(
                   value: proteinCalories,
-                  title: '${(proteinCalories / safeTotalCalories * 100).toStringAsFixed(0)}%',
+                  title:
+                      '${(proteinCalories / safeTotalCalories * 100).toStringAsFixed(0)}%',
                   color: Colors.redAccent,
                   isTouched: _touchedIndex == 0,
                 ),
                 _buildPieSection(
                   value: carbsCalories,
-                  title: '${(carbsCalories / safeTotalCalories * 100).toStringAsFixed(0)}%',
+                  title:
+                      '${(carbsCalories / safeTotalCalories * 100).toStringAsFixed(0)}%',
                   color: Colors.blueAccent,
                   isTouched: _touchedIndex == 1,
                 ),
                 _buildPieSection(
                   value: fatCalories,
-                  title: '${(fatCalories / safeTotalCalories * 100).toStringAsFixed(0)}%',
+                  title:
+                      '${(fatCalories / safeTotalCalories * 100).toStringAsFixed(0)}%',
                   color: Colors.amber,
                   isTouched: _touchedIndex == 2,
                 ),
@@ -169,30 +179,49 @@ class _MealDetailsScreenState extends State<MealDetailsScreen> {
       value: value,
       title: title,
       radius: radius,
-      titleStyle: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold, color: Colors.white),
+      titleStyle: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.bold,
+        color: Colors.white,
+      ),
     );
   }
-  
-  Widget _buildSummaryCard(double calories, double protein, double carbs, double fat) {
+
+  Widget _buildSummaryCard(
+    double calories,
+    double protein,
+    double carbs,
+    double fat,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildMacroRow('Calorias', calories, 'kcal', Icons.local_fire_department),
+            _buildMacroRow(
+                'Calorias', calories, 'kcal', Icons.local_fire_department),
             const Divider(),
-            _buildMacroRow('Proteínas', protein, 'g', Icons.fitness_center, Colors.redAccent),
+            _buildMacroRow(
+                'Proteínas', protein, 'g', Icons.fitness_center, Colors.redAccent),
             const Divider(),
-            _buildMacroRow('Carboidratos', carbs, 'g', Icons.rice_bowl, Colors.blueAccent),
+            _buildMacroRow(
+                'Carboidratos', carbs, 'g', Icons.rice_bowl, Colors.blueAccent),
             const Divider(),
-            _buildMacroRow('Gorduras', fat, 'g', Icons.local_dining, Colors.amber),
+            _buildMacroRow(
+                'Gorduras', fat, 'g', Icons.local_dining, Colors.amber),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMacroRow(String label, double value, String unit, IconData icon, [Color? color]) {
+  Widget _buildMacroRow(
+    String label,
+    double value,
+    String unit,
+    IconData icon, [
+    Color? color,
+  ]) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(

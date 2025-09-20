@@ -15,9 +15,11 @@ class MealAIService {
   MealAIService(this.llm);
 
   Future<core.Meal?> fromText(String description) async {
-    final template = await rootBundle.loadString('assets/prompts/meal_from_text.txt');
+    final template =
+        await rootBundle.loadString('assets/prompts/meal_from_text.txt');
     final prompt = template.replaceAll('{meal_text}', description);
     final raw = await llm.generateResponse(prompt);
+    // ignore: avoid_print
     print('---- RESPOSTA CRUA DA IA (TEXTO) ----\n$raw\n---------------------------');
     final json = safeDecodeMap(raw);
     return _mealFromJson(json);
@@ -30,33 +32,37 @@ class MealAIService {
     List<String> imagesBase64, {
     String? extraText,
   }) async {
-    final template = await rootBundle.loadString('assets/prompts/meal_from_image.txt');
+    final template =
+        await rootBundle.loadString('assets/prompts/meal_from_image.txt');
     final prompt = template.replaceAll('{extra}', extraText ?? '');
-    final raw = await llm.generateResponse(prompt, imagesBase64: imagesBase64);
+    final raw =
+        await llm.generateResponse(prompt, imagesBase64: imagesBase64);
 
+    // ignore: avoid_print
     print('---- RESPOSTA CRUA DA IA (IMAGEM) ----\n$raw\n---------------------------');
-    
+
     final result = _parseMealAndGrams(raw);
-    
     return (result: result, rawResponse: raw);
   }
 
-
-  /// Este método agora apenas chama o novo e extrai o resultado para manter compatibilidade.
+  /// Compat: extrai apenas o resultado.
   Future<({core.Meal meal, double grams})?> fromImageAuto(
     List<String> imagesBase64, {
     String? extraText,
   }) async {
-      final response = await fromImageAutoWithRawResponse(imagesBase64, extraText: extraText);
-      return response?.result;
+    final response =
+        await fromImageAutoWithRawResponse(imagesBase64, extraText: extraText);
+    return response?.result;
   }
 
-  // Lógica de parse extraída para ser reutilizável
+  // -------------------- Parse helpers --------------------
+
   ({core.Meal meal, double grams})? _parseMealAndGrams(String rawResponse) {
     Map<String, dynamic> json;
     try {
       json = safeDecodeMap(rawResponse);
     } catch (e) {
+      // ignore: avoid_print
       print('FALHA AO ANALISAR JSON: $e');
       return null;
     }
@@ -64,24 +70,34 @@ class MealAIService {
     double? grams;
     try {
       if (json['plate_estimate'] != null || json['components'] != null) {
-        final compList = (json['components'] as List?)?.cast<Map<String, dynamic>>() ?? const [];
-        final plate = (json['plate_estimate'] as Map<String, dynamic>?) ?? const {};
-        final comps = compList.map((e) => est.MealComponent.fromJson(e)).toList();
+        final compList =
+            (json['components'] as List?)?.cast<Map<String, dynamic>>() ??
+                const [];
+        final plate =
+            (json['plate_estimate'] as Map<String, dynamic>?) ?? const {};
+        final comps = compList
+            .map((e) => est.EstimatedMealComponent.fromJson(e))
+            .toList();
         final plateEst = plate.isNotEmpty
-            ? est.PlateEstimate.fromJson(plate)
-            : est.PlateEstimate.fromJson({
-                'total_weight_g': comps.fold<double>(0, (a, c) => a + (c.estimatedWeightG)),
-                'calories_total': 0, 'protein_total_g': 0, 'carbs_total_g': 0, 'fat_total_g': 0,
+            ? est.EstimatedPlateTotals.fromJson(plate)
+            : est.EstimatedPlateTotals.fromJson({
+                'total_weight_g': comps.fold<double>(
+                    0, (a, c) => a + (c.estimatedWeightG)),
+                'calories_total': 0,
+                'protein_total_g': 0,
+                'carbs_total_g': 0,
+                'fat_total_g': 0,
               });
         grams = plateEst.totalWeightG;
       }
-    } catch (_) { /* ignora */ }
+    } catch (_) {
+      // silencia parse parcial
+    }
 
     grams ??= _tryParseNum(json['serving_weight_g']) ??
         _tryParseNum(json['total_weight_g']) ??
-        _tryParseNum(json['estimated_weight_g']);
-
-    grams ??= 300.0;
+        _tryParseNum(json['estimated_weight_g']) ??
+        300.0;
 
     final meal = _mealFromJson(json);
     if (meal == null) return null;
@@ -92,6 +108,7 @@ class MealAIService {
   core.Meal? _mealFromJson(Map<String, dynamic> j) {
     final m = j['meal'];
     if (m == null) {
+      // ignore: avoid_print
       print('FALHA NO SCHEMA: Chave "meal" não encontrada no JSON.');
       return null;
     }
@@ -106,7 +123,11 @@ class MealAIService {
     );
   }
 
-  double _num(dynamic v) => (v as num? ?? 0.0).toDouble();
+  double _num(dynamic v) {
+    if (v is num) return v.toDouble();
+    final p = double.tryParse('$v');
+    return p ?? 0.0;
+  }
 
   double? _tryParseNum(dynamic v) {
     if (v == null) return null;

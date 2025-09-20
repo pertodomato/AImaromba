@@ -11,15 +11,14 @@ import 'package:fitapp/features/3_planner/infrastructure/llm/llm_client_impl.dar
 import 'package:fitapp/features/3_planner/infrastructure/persistence/hive_workout_repo.dart';
 import 'package:fitapp/features/3_planner/infrastructure/persistence/hive_diet_repo.dart';
 
-// Models
-import 'package:fitapp/core/models/models.dart';
+// Models (usados para abrir as boxes corretas ao criar os repositórios)
+import 'package:fitapp/core/models/exercise.dart';
+import 'package:fitapp/core/models/workout_session.dart';
+import 'package:fitapp/core/models/workout_day.dart';
+import 'package:fitapp/core/models/workout_routine.dart';
 import 'package:fitapp/core/models/workout_block.dart';
 import 'package:fitapp/core/models/workout_routine_schedule.dart';
-import 'package:fitapp/core/models/diet_block.dart';
-// Se você já usa os planos detalhados de dieta, mantenha estes imports.
-// Caso não use, você pode removê-los sem afetar esta tela.
-import 'package:fitapp/core/models/diet_day_plan.dart';
-import 'package:fitapp/core/models/diet_day_meal_plan_item.dart';
+import 'package:fitapp/core/models/user_profile.dart';
 
 class NewPlanFlowScreen extends StatefulWidget {
   const NewPlanFlowScreen({super.key});
@@ -43,31 +42,28 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
     final hive = context.read<HiveService>();
     final llmService = context.read<LLMService>();
 
-    // Client LLM (usa seu LLMService já configurado)
+    // Cliente LLM (usa seu LLMService)
     final llm = LLMClientImpl(llmService);
 
-    // Repositórios persistentes (agora com Blocks)
+    // Repositório de treino (HiveWorkoutRepo requer boxes explícitas)
     final workoutRepo = HiveWorkoutRepo(
       exBox: hive.getBox<Exercise>('exercises'),
       sessBox: hive.getBox<WorkoutSession>('workout_sessions'),
       dayBox: hive.getBox<WorkoutDay>('workout_days'),
       routineBox: hive.getBox<WorkoutRoutine>('workout_routines'),
       blockBox: hive.getBox<WorkoutBlock>('workout_blocks'),
-      routineScheduleBox: hive.getBox<WorkoutRoutineSchedule>('routine_schedules'),
+      routineScheduleBox:
+          hive.getBox<WorkoutRoutineSchedule>('routine_schedules'),
     );
 
-    final dietRepo = HiveDietRepo(
-      mealBox: hive.getBox<Meal>('meals'),
-      dayBox: hive.getBox<DietDay>('diet_days'),
-      routineBox: hive.getBox<DietRoutine>('diet_routines'),
-      blockBox: hive.getBox<DietBlock>('diet_blocks'),
-      // Se você abriu essas boxes no HiveService, descomente:
-      // planBox: hive.getBox<DietDayPlan>('diet_day_plans'),
-      // planItemBox: hive.getBox<DietDayMealPlanItem>('diet_day_meal_plan_items'),
-    );
+    // Repositório de dieta — use a fábrica para alinhar com a nova assinatura
+    final dietRepo = HiveDietRepo.fromService(hive);
 
-    final orchestrator =
-        PlannerOrchestrator(llm: llm, workoutRepo: workoutRepo, dietRepo: dietRepo);
+    final orchestrator = PlannerOrchestrator(
+      llm: llm,
+      workoutRepo: workoutRepo,
+      dietRepo: dietRepo,
+    );
 
     controller = PlannerController(orchestrator: orchestrator);
 
@@ -97,7 +93,6 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
         'gender': p.gender,
         'birthDate': p.birthDate?.toIso8601String(),
         'bodyFatPercentage': p.bodyFatPercentage,
-        // Acrescente aqui outros campos que seu prompt/fluxo use
       };
 
   @override
@@ -208,7 +203,9 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _answers[q.key],
-                      decoration: const InputDecoration(border: OutlineInputBorder()),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
                       maxLines: 3,
                     ),
                   ],
@@ -248,10 +245,12 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
                         context.read<HiveService>().getUserProfile(),
                       ),
                       goal: _goal.text.trim(),
-                      answers: _answers.map((k, v) => MapEntry(k, v.text.trim())),
+                      answers:
+                          _answers.map((k, v) => MapEntry(k, v.text.trim())),
                     );
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
                   child: const Text('Gerar Resumo'),
                 ),
             ],
@@ -269,11 +268,13 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Resumo do Treino', style: Theme.of(context).textTheme.titleLarge),
+          Text('Resumo do Treino',
+              style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(s['workout_summary'] ?? ''),
           const SizedBox(height: 16),
-          Text('Resumo da Nutrição', style: Theme.of(context).textTheme.titleLarge),
+          Text('Resumo da Nutrição',
+              style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(s['nutrition_summary'] ?? ''),
           const Spacer(),
@@ -294,7 +295,8 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
                   userProfile: _profileToJson(
                     context.read<HiveService>().getUserProfile(),
                   ),
-                  answers: _answers.map((k, v) => MapEntry(k, v.text.trim())),
+                  answers:
+                      _answers.map((k, v) => MapEntry(k, v.text.trim())),
                 ),
                 icon: const Icon(Icons.check),
                 label: const Text('Confirmar e Construir'),
@@ -313,7 +315,10 @@ class _NewPlanFlowScreenState extends State<NewPlanFlowScreen> {
         title: const Text('Erro'),
         content: Text(msg),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
         ],
       ),
     );

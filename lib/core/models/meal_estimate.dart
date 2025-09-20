@@ -1,4 +1,5 @@
 import 'package:fitapp/core/models/meal.dart' as core;
+import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
 /// Componente estimado de um prato (usado pelos prompts meal_from_*).
 class EstimatedMealComponent {
@@ -117,10 +118,12 @@ class MealEstimateResponse {
     final mealJson = (json['meal'] as Map?)?.cast<String, dynamic>() ?? {};
     double _d(v) => (v is num) ? v.toDouble() : double.tryParse('$v') ?? 0.0;
 
+    final nameStr = (mealJson['name'] ?? '').toString();
+    final idStr = (mealJson['id'] ?? toSlug(nameStr)).toString();
+
     final coreMeal = core.Meal(
-      // Se o seu core.Meal não tiver `id` no construtor, remova esta linha.
-      // id: (mealJson['id'] ?? '').toString(),
-      name: (mealJson['name'] ?? '').toString(),
+      id: idStr,
+      name: nameStr,
       description: (mealJson['description'] ?? '').toString(),
       caloriesPer100g: _d(mealJson['calories_per_100g']),
       proteinPer100g: _d(mealJson['protein_per_100g']),
@@ -146,8 +149,7 @@ class MealEstimateResponse {
 
   Map<String, dynamic> toJson() => {
         'meal': {
-          // Se `core.Meal` possuir `id`, inclua aqui.
-          // 'id': meal.id,
+          'id': meal.id,
           'name': meal.name,
           'description': meal.description,
           'calories_per_100g': meal.caloriesPer100g,
