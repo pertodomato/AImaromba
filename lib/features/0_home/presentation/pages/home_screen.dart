@@ -10,6 +10,7 @@ import 'package:fitapp/core/services/food_api_service.dart';
 import 'package:fitapp/core/services/food_repository.dart';
 import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/meal_ai_service.dart';
+import 'package:fitapp/core/utils/diet_schedule_utils.dart';
 
 import 'package:fitapp/features/common/scan_barcode_screen.dart';
 import 'package:fitapp/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
@@ -30,6 +31,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String _nextSessionDayName = '';
   double _consumedKcal = 0;
   double _dailyGoalKcal = 2000;
+  String? _dietGoalLabel;
+
   bool _planEnded = false;
 
   static const int _defaultDurationDays = 180;
@@ -130,6 +133,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final profile = hive.getUserProfile();
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
+    _dietGoalLabel = null;
+
+    final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+    if (dietTarget != null) {
+      final parts = <String>[];
+      if (dietTarget.blockName != null && dietTarget.blockName!.isNotEmpty) {
+        parts.add(dietTarget.blockName!);
+      }
+      if (dietTarget.dayName != null && dietTarget.dayName!.isNotEmpty) {
+        parts.add(dietTarget.dayName!);
+      }
+      if (parts.isNotEmpty) {
+        _dietGoalLabel = parts.join(' • ');
+      }
+      if (dietTarget.hasCalorieGoal) {
+        _dailyGoalKcal = dietTarget.calories;
+      }
+    }
 
     if (mounted) setState(() {});
   }
@@ -579,6 +600,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ]),
                           const Divider(height: 20),
                           Text('Calorias hoje: ${_consumedKcal.toStringAsFixed(0)} / ${_dailyGoalKcal.toStringAsFixed(0)} kcal'),
+                          if (_dietGoalLabel != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Plano: $_dietGoalLabel',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
                           const SizedBox(height: 6),
                           LinearProgressIndicator(value: progress),
                         ],
