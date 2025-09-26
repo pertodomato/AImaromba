@@ -1,8 +1,9 @@
+// lib/core/services/hive_service.dart
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart' as pp;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-// MODELS
+// MODELS (cada um possui seu *.g.dart com o Adapter gerado)
 import 'package:fitapp/core/models/user_profile.dart';
 import 'package:fitapp/core/models/exercise.dart';
 import 'package:fitapp/core/models/workout_session.dart';
@@ -26,7 +27,7 @@ import 'package:fitapp/core/models/workout_set_entry.dart';
 import 'package:fitapp/core/models/workout_session_log.dart';
 
 class HiveService {
-  // nomes FIXOS
+  // ===== Nomes fixos por tipo =====
   static const _userProfileBoxName = 'user_profile';
 
   static const _exercisesBoxName = 'exercises';
@@ -35,8 +36,10 @@ class HiveService {
   static const _workoutBlocksBoxName = 'workout_blocks';
   static const _workoutRoutinesBoxName = 'workout_routines';
   static const _workoutRoutineSchedulesBoxName = 'workout_routine_schedules';
-  // alias antigo usado em telas
-  static const _routineSchedulesAlias = 'routine_schedules';
+  static const _routineSchedulesAlias = 'routine_schedules'; // legado
+
+  static const _workoutSetEntriesBoxName = 'workout_set_entries';
+  static const _workoutSessionLogsBoxName = 'workout_session_logs';
 
   static const _mealsBoxName = 'meals';
   static const _mealEntriesBoxName = 'meal_entries';
@@ -49,15 +52,53 @@ class HiveService {
   static const _dietDayMealPlanItemsBoxName = 'diet_day_meal_plan_items';
   static const _dietRoutineSchedulesBoxName = 'diet_routine_schedules';
 
-  static const _workoutSetEntriesBoxName = 'workout_set_entries';
-  static const _workoutSessionLogsBoxName = 'workout_session_logs';
-
+  // ===== Bootstrap =====
   Future<void> init() async {
     if (!kIsWeb) {
       final dir = await pp.getApplicationDocumentsDirectory();
       Hive.init(dir.path);
     }
+    _registerAdapters();          // <<<<<<<<<< IMPORTANTE
     await _openTypedBoxesOnce();
+  }
+
+  /// Registra todos os adapters gerados (idempotente via try/catch).
+  void _registerAdapters() {
+    // helper p/ evitar exceção de “adapter already registered”
+    void reg<T>(TypeAdapter<T> a) {
+      try {
+        Hive.registerAdapter<T>(a);
+      } catch (_) {
+        // já registrado: ignora
+      }
+    }
+
+    // Perfil
+    reg<UserProfile>(UserProfileAdapter());
+
+    // Workout (cadastro/planos)
+    reg<Exercise>(ExerciseAdapter());
+    reg<WorkoutSession>(WorkoutSessionAdapter());
+    reg<WorkoutDay>(WorkoutDayAdapter());
+    reg<WorkoutBlock>(WorkoutBlockAdapter());
+    reg<WorkoutRoutine>(WorkoutRoutineAdapter());
+    reg<WorkoutRoutineSchedule>(WorkoutRoutineScheduleAdapter());
+
+    // Workout (logs/entradas)
+    reg<WorkoutSetEntry>(WorkoutSetEntryAdapter());
+    reg<WorkoutSessionLog>(WorkoutSessionLogAdapter());
+
+    // Dieta
+    reg<Meal>(MealAdapter());
+    reg<MealEntry>(MealEntryAdapter());
+    reg<WeightEntry>(WeightEntryAdapter());
+
+    reg<DietDay>(DietDayAdapter());
+    reg<DietBlock>(DietBlockAdapter());
+    reg<DietRoutine>(DietRoutineAdapter());
+    reg<DietDayPlan>(DietDayPlanAdapter());
+    reg<DietDayMealPlanItem>(DietDayMealPlanItemAdapter());
+    reg<DietRoutineSchedule>(DietRoutineScheduleAdapter());
   }
 
   Future<void> _openTypedBoxesOnce() async {
@@ -66,7 +107,7 @@ class HiveService {
       await Hive.openBox<UserProfile>(_userProfileBoxName);
     }
 
-    // Workout
+    // Workout (cadastro/planos)
     if (!Hive.isBoxOpen(_exercisesBoxName)) {
       await Hive.openBox<Exercise>(_exercisesBoxName);
     }
@@ -86,7 +127,7 @@ class HiveService {
       await Hive.openBox<WorkoutRoutineSchedule>(_workoutRoutineSchedulesBoxName);
     }
 
-    // Workout – logs/sets
+    // Workout (logs/entradas)
     if (!Hive.isBoxOpen(_workoutSetEntriesBoxName)) {
       await Hive.openBox<WorkoutSetEntry>(_workoutSetEntriesBoxName);
     }
@@ -94,7 +135,7 @@ class HiveService {
       await Hive.openBox<WorkoutSessionLog>(_workoutSessionLogsBoxName);
     }
 
-    // Diet
+    // Dieta
     if (!Hive.isBoxOpen(_mealsBoxName)) {
       await Hive.openBox<Meal>(_mealsBoxName);
     }
@@ -125,7 +166,7 @@ class HiveService {
     }
   }
 
-  // GETTERS TIPADOS
+  // ===== Getters tipados =====
   Box<UserProfile> get userProfileBox => Hive.box<UserProfile>(_userProfileBoxName);
 
   Box<Exercise> get exercisesBox => Hive.box<Exercise>(_exercisesBoxName);
@@ -152,7 +193,7 @@ class HiveService {
   Box<DietRoutineSchedule> get dietRoutineSchedulesBox =>
       Hive.box<DietRoutineSchedule>(_dietRoutineSchedulesBoxName);
 
-  /// Compat: mesma API das telas — **agora retorna Box<T> corretamente**
+  /// Compat com telas antigas — retorna **Box<T>**
   Box<T> getBox<T>(String name) {
     switch (name) {
       case _userProfileBoxName:
@@ -169,7 +210,7 @@ class HiveService {
       case _workoutRoutinesBoxName:
         return workoutRoutinesBox as Box<T>;
       case _workoutRoutineSchedulesBoxName:
-      case _routineSchedulesAlias: // aceita 'routine_schedules'
+      case _routineSchedulesAlias:
         return workoutRoutineSchedulesBox as Box<T>;
 
       case _workoutSetEntriesBoxName:
@@ -202,22 +243,36 @@ class HiveService {
     }
   }
 
-  // Perfil
+  // ===== Perfil (chave fixa + migração legado) =====
   UserProfile getUserProfile() {
-    if (userProfileBox.isEmpty) {
-      final p = UserProfile(
-        name: '',
-        selectedLlm: 'gemini',
-        geminiApiKey: '',
-        gptApiKey: '',
-      );
-      userProfileBox.put('profile', p);
-      return p;
+    // Garantia extra: se por algum motivo init() não rodou ainda
+    _registerAdapters();
+
+    final current = userProfileBox.get('profile');
+    if (current != null) return current;
+
+    if (userProfileBox.isNotEmpty) {
+      final legacy = userProfileBox.values.first;
+      userProfileBox.put('profile', legacy);
+      for (final k in userProfileBox.keys.toList()) {
+        if (k != 'profile') userProfileBox.delete(k);
+      }
+      return legacy;
     }
-    return userProfileBox.values.first;
+
+    final p = UserProfile(
+      name: '',
+      selectedLlm: 'gemini',
+      geminiApiKey: '',
+      gptApiKey: '',
+    );
+    userProfileBox.put('profile', p);
+    return p;
   }
 
   void saveUserProfile(UserProfile p) {
+    // Garantia extra (web/hot-reload)
+    _registerAdapters();
     userProfileBox.put('profile', p);
   }
 }
