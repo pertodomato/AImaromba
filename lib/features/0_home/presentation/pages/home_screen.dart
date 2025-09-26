@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _consumedKcal = 0;
   double _dailyGoalKcal = 2000;
   String? _dietGoalLabel;
+
   bool _planEnded = false;
 
   static const int _defaultDurationDays = 180;

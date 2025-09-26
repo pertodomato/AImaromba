@@ -37,6 +37,8 @@ EXEMPLO 1 (PPL 6x com descanso):
     "name": "PPL 6x com descanso",
     "description": "Push/Pull/Legs repetido em 6 dias seguidos + 1 descanso.",
     "repetition_schema": "Semanal",
+    "target_duration_days": null,
+    "end_date": null,
     "block_sequence_placeholders": ["ppl_semanal"]
   },
   "blocks_to_create": [
@@ -51,6 +53,8 @@ EXEMPLO 2 (Upper/Lower 4x com 3 descansos):
     "name": "Upper/Lower 4x",
     "description": "Duas sessões de Upper e duas de Lower por semana, com 3 dias leve/descanso.",
     "repetition_schema": "Semanal",
+    "target_duration_days": 84,
+    "end_date": "2024-09-30",
     "block_sequence_placeholders": ["upper_lower_semana"]
   },
   "blocks_to_create": [

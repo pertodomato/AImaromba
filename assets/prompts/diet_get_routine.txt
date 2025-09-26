@@ -34,6 +34,8 @@ EXEMPLO 1 (semana normal + fds livre):
     "name": "Dieta Semanal com 2 livres",
     "description": "Semana padrão com 2 refeições livres distribuídas no fim de semana.",
     "repetition_schema": "Semanal",
+    "target_duration_days": null,
+    "end_date": null,
     "block_sequence_placeholders": ["semana_com_fds_livre"]
   },
   "blocks_to_create": [
@@ -48,6 +50,8 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
     "name": "Ciclo 10/4 Déficit-Manutenção",
     "description": "10 dias em déficit, 4 dias em manutenção.",
     "repetition_schema": "Quinzenal",
+    "target_duration_days": 84,
+    "end_date": "2024-11-15",
     "block_sequence_placeholders": ["dez_deficit_quatro_manutencao"]
   },
   "blocks_to_create": [
