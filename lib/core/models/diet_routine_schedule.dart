@@ -23,10 +23,15 @@ class DietRoutineSchedule extends HiveObject {
   @HiveField(2)
   String repetitionSchema;
 
+  /// Data limite para repetir o ciclo de dieta.
+  @HiveField(3)
+  DateTime? endDate;
+
   DietRoutineSchedule({
     required this.routineSlug,
     required this.blockSequence,
     required this.repetitionSchema,
+    this.endDate,
   });
 
   // ---- Utilidades (opcionais) ----
@@ -36,6 +41,9 @@ class DietRoutineSchedule extends HiveObject {
       routineSlug: (json['routine_slug'] ?? '').toString(),
       blockSequence: List<String>.from(json['block_sequence'] ?? const []),
       repetitionSchema: (json['repetition_schema'] ?? 'Semanal').toString(),
+      endDate: json['end_date'] != null && '${json['end_date']}'.isNotEmpty
+          ? DateTime.tryParse('${json['end_date']}')
+          : null,
     );
   }
 
@@ -43,5 +51,6 @@ class DietRoutineSchedule extends HiveObject {
         'routine_slug': routineSlug,
         'block_sequence': blockSequence,
         'repetition_schema': repetitionSchema,
+        if (endDate != null) 'end_date': endDate!.toIso8601String(),
       };
 }

@@ -29,6 +29,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
+  bool _endReminderShown = false;
 
   WorkoutRoutine? _workoutRoutine;
   WorkoutRoutineSchedule? _workoutSchedule;
@@ -43,6 +44,88 @@ class _PlannerScreenState extends State<PlannerScreen> {
   late final Box<DietRoutineSchedule> _dScheduleBox;
   late final Box<DietDay> _dDayBox;
 
+  static const int _defaultDurationDays = 180;
+
+  DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  DateTime _defaultEndFor(DateTime start) =>
+      _dateOnly(start.add(const Duration(days: _defaultDurationDays - 1)));
+
+  DateTime? _resolveScheduleEndDate({
+    required DateTime? start,
+    required DateTime? storedEnd,
+  }) {
+    if (start == null) return null;
+    final startOnly = _dateOnly(start);
+    if (storedEnd != null) {
+      final normalized = _dateOnly(storedEnd);
+      if (!normalized.isBefore(startOnly)) {
+        return normalized;
+      }
+    }
+    return _defaultEndFor(startOnly);
+  }
+
+  DateTime? _combinedEndDate() {
+    DateTime? candidate;
+    final workoutEnd = _resolveScheduleEndDate(
+      start: _workoutRoutine?.startDate,
+      storedEnd: _workoutSchedule?.endDate,
+    );
+    final dietEnd = _resolveScheduleEndDate(
+      start: _dietRoutine?.startDate,
+      storedEnd: _dietSchedule?.endDate,
+    );
+
+    if (workoutEnd != null) {
+      candidate = workoutEnd;
+    }
+    if (dietEnd != null) {
+      if (candidate == null || dietEnd.isAfter(candidate)) {
+        candidate = dietEnd;
+      }
+    }
+    return candidate;
+  }
+
+  void _maybeShowPlanEndPrompt(DateTime day, List<String> events) {
+    if (events.isEmpty) return;
+    final endDate = _combinedEndDate();
+    if (endDate == null) return;
+    if (_endReminderShown) return;
+    if (!isSameDay(day, endDate)) return;
+
+    _endReminderShown = true;
+    final parentContext = context;
+    showDialog<void>(
+      context: parentContext,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Plano concluído'),
+          content: const Text(
+            'Você chegou ao fim desta rotina. Que tal gerar um novo plano com a IA para os próximos meses?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Agora não'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.push(
+                  parentContext,
+                  MaterialPageRoute(builder: (_) => const NewPlanFlowScreen()),
+                );
+              },
+              child: const Text('Criar novo plano'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +133,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _selectedEvents = ValueNotifier<List<String>>(<String>[]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadRoutines();
-      _selectedEvents.value = _getEventsForDay(_selectedDay!);
+      final initialEvents = _getEventsForDay(_selectedDay!);
+      _selectedEvents.value = initialEvents;
+      _maybeShowPlanEndPrompt(_selectedDay!, initialEvents);
     });
   }
 
@@ -90,6 +175,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _dietRoutine = selectedDietRoutine;
       _workoutSchedule = resolvedWS;
       _dietSchedule = resolvedDS;
+      _endReminderShown = false;
     });
   }
 
@@ -98,8 +184,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final ws = _workoutSchedule;
     if (wr == null || ws == null) return const <String>[];
 
-    final routineStart = wr.startDate ?? DateTime.now();
-    final base = DateTime(routineStart.year, routineStart.month, routineStart.day);
+    final routineStart = _dateOnly(wr.startDate);
+    final endDate = _resolveScheduleEndDate(
+      start: routineStart,
+      storedEnd: ws.endDate,
+    );
+    if (day.isBefore(routineStart)) return const <String>[];
+    if (endDate != null && day.isAfter(endDate)) return const <String>[];
+
+    final base = routineStart;
     final diff = day.difference(base).inDays;
     if (diff < 0) return const <String>[];
 
@@ -127,8 +220,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final ds = _dietSchedule;
     if (dr == null || ds == null) return const <String>[];
 
-    final routineStart = dr.startDate ?? DateTime.now();
-    final base = DateTime(routineStart.year, routineStart.month, routineStart.day);
+    final routineStart = _dateOnly(dr.startDate);
+    final endDate = _resolveScheduleEndDate(
+      start: routineStart,
+      storedEnd: ds.endDate,
+    );
+    if (day.isBefore(routineStart)) return const <String>[];
+    if (endDate != null && day.isAfter(endDate)) return const <String>[];
+
+    final base = routineStart;
     final diff = day.difference(base).inDays;
     if (diff < 0) return const <String>[];
 
@@ -159,11 +259,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   void _onDaySelected(DateTime selectedDay, DateTime focusedDay) {
     if (!isSameDay(_selectedDay, selectedDay)) {
+      final events = _getEventsForDay(selectedDay);
       setState(() {
         _selectedDay = selectedDay;
         _focusedDay = focusedDay;
       });
-      _selectedEvents.value = _getEventsForDay(selectedDay);
+      _selectedEvents.value = events;
+      _maybeShowPlanEndPrompt(selectedDay, events);
     }
   }
 
