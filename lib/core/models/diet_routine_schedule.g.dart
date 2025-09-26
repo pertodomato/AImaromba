@@ -20,19 +20,22 @@ class DietRoutineScheduleAdapter extends TypeAdapter<DietRoutineSchedule> {
       routineSlug: fields[0] as String,
       blockSequence: (fields[1] as List).cast<String>(),
       repetitionSchema: fields[2] as String,
+      endDate: fields[3] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, DietRoutineSchedule obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.routineSlug)
       ..writeByte(1)
       ..write(obj.blockSequence)
       ..writeByte(2)
-      ..write(obj.repetitionSchema);
+      ..write(obj.repetitionSchema)
+      ..writeByte(3)
+      ..write(obj.endDate);
   }
 
   @override

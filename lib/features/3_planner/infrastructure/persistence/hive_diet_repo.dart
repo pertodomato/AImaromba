@@ -42,6 +42,7 @@ class HiveDietRepo {
     required String routineSlug,
     required String repetitionSchema,
     required List<DietBlock> sequence,
+    DateTime? endDate,
   }) upsertDietRoutineSchedule;
 
   HiveDietRepo({
@@ -81,11 +82,13 @@ class HiveDietRepo {
       required String routineSlug,
       required String repetitionSchema,
       required List<DietBlock> sequence,
+      DateTime? endDate,
     }) =>
         _upsertDietRoutineSchedule(
           routineSlug: routineSlug,
           repetitionSchema: repetitionSchema,
           sequence: sequence,
+          endDate: endDate,
         );
   }
 
@@ -315,6 +318,7 @@ class HiveDietRepo {
     required String routineSlug,
     required String repetitionSchema,
     required List<DietBlock> sequence,
+    DateTime? endDate,
   }) {
     throw UnimplementedError();
   }
@@ -323,6 +327,7 @@ class HiveDietRepo {
     required String routineSlug,
     required String repetitionSchema,
     required List<DietBlock> sequence,
+    DateTime? endDate,
   }) {
     final canonical = toSlug(routineSlug);
     final blockSeq = sequence.map((b) => b.slug).toList();
@@ -336,7 +341,8 @@ class HiveDietRepo {
       final sch = existing.first;
       sch
         ..blockSequence = blockSeq
-        ..repetitionSchema = repetitionSchema;
+        ..repetitionSchema = repetitionSchema
+        ..endDate = endDate ?? sch.endDate;
       // ignore: discarded_futures
       sch.save();
       // LOG
@@ -349,6 +355,7 @@ class HiveDietRepo {
       routineSlug: canonical,
       blockSequence: blockSeq,
       repetitionSchema: repetitionSchema,
+      endDate: endDate,
     );
     // Usa a própria slug como key principal do schedule
     // ignore: discarded_futures
