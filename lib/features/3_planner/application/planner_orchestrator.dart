@@ -35,6 +35,57 @@ class PlannerOrchestrator {
     required this.dietRepo,
   });
 
+  DateTime _todayDate() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  static const int _defaultDurationDays = 180;
+
+  DateTime _resolveRoutineEndDate({
+    required DateTime startDate,
+    Map<String, dynamic>? routineMeta,
+    int? fallbackDays,
+  }) {
+    DateTime? explicitEnd;
+    final rawEnd = routineMeta?['end_date'];
+    if (rawEnd != null) {
+      final candidate = DateTime.tryParse(rawEnd.toString());
+      if (candidate != null) {
+        explicitEnd = _dateOnly(candidate);
+      }
+    }
+
+    int? durationDays;
+    final rawDuration = routineMeta?['target_duration_days'] ??
+        routineMeta?['duration_days'] ??
+        routineMeta?['total_days'];
+    if (rawDuration != null) {
+      final parsed = int.tryParse(rawDuration.toString());
+      if (parsed != null && parsed > 0) {
+        durationDays = parsed;
+      }
+    }
+
+    DateTime candidateEnd;
+    if (explicitEnd != null) {
+      candidateEnd = explicitEnd;
+    } else if (durationDays != null) {
+      candidateEnd = startDate.add(Duration(days: durationDays - 1));
+    } else if (fallbackDays != null && fallbackDays > _defaultDurationDays) {
+      candidateEnd = startDate.add(Duration(days: fallbackDays - 1));
+    } else {
+      candidateEnd = startDate.add(const Duration(days: _defaultDurationDays - 1));
+    }
+
+    if (candidateEnd.isBefore(startDate)) {
+      return startDate;
+    }
+    return _dateOnly(candidateEnd);
+  }
+
   // ------------------ Perguntas ------------------
   Future<List<Map<String, String>>> generateQuestions({
     required Map<String, Object?> userProfile,
@@ -124,6 +175,9 @@ class PlannerOrchestrator {
       description: routineDesc,
       repetitionSchema: repetitionSchema,
     );
+    final routineStart = _todayDate();
+    routine.startDate = routineStart;
+    await routine.save();
 
     // Reuso em memória (durante esta orquestração)
     final Map<String, Exercise> exerciseBySlug = {};
@@ -283,16 +337,27 @@ class PlannerOrchestrator {
     }
 
     // 3) Persist schedule da rotina
-    final List<WorkoutBlock> sequence = blockPlaceholders
+    final sequence = blockPlaceholders
         .map((ph) => blocksCreated[ph])
         .where((e) => e != null)
         .cast<WorkoutBlock>()
         .toList();
 
+    final cycleDays = sequence.fold<int>(0, (sum, block) => sum + block.daySlugs.length);
+    final routineMeta = (routineJson['routine'] as Map?)
+            ?.map((key, value) => MapEntry(key.toString(), value)) ??
+        const <String, dynamic>{};
+    final routineEnd = _resolveRoutineEndDate(
+      startDate: routineStart,
+      routineMeta: routineMeta,
+      fallbackDays: cycleDays > 0 ? cycleDays : null,
+    );
+
     final sch = workoutRepo.upsertRoutineSchedule(
       routineSlug: toSlug(routine.name),
       repetitionSchema: repetitionSchema,
       sequence: sequence, // já é List<WorkoutBlock>
+      endDate: routineEnd,
     );
     // ignore: avoid_print
     print('.. workout schedule saved: ${sch.routineSlug} -> ${sch.blockSequence}');
@@ -346,6 +411,9 @@ class PlannerOrchestrator {
       repetitionSchema: repetition,
       sequence: const [],
     );
+    final dietStart = _todayDate();
+    routine.startDate = dietStart;
+    await routine.save();
 
     // Reuso em memória durante a execução
     final Map<String, Meal> mealBySlug = {};
@@ -526,17 +594,28 @@ class PlannerOrchestrator {
     }
 
     // 4) DietRoutine final (schedule por blocks)
-    final List<DietBlock> sequence = blockPHs
+    final sequence = blockPHs
         .map((ph) => blocksCreated[ph])
         .where((e) => e != null)
         .cast<DietBlock>()
         .toList();
+
+    final dietCycleDays = sequence.fold<int>(0, (sum, block) => sum + block.daySlugs.length);
+    final dietRoutineMeta = (routineJson['diet_routine'] as Map?)
+            ?.map((key, value) => MapEntry(key.toString(), value)) ??
+        const <String, dynamic>{};
+    final dietEnd = _resolveRoutineEndDate(
+      startDate: dietStart,
+      routineMeta: dietRoutineMeta,
+      fallbackDays: dietCycleDays > 0 ? dietCycleDays : null,
+    );
 
     // Persistir a ordem no DietRoutineSchedule
     dietRepo.upsertDietRoutineSchedule(
       routineSlug: toSlug(routine.name),
       repetitionSchema: repetition,
       sequence: sequence,
+      endDate: dietEnd,
     );
 
     yield const ProgressEvent('Dieta concluída!', 1.0);
