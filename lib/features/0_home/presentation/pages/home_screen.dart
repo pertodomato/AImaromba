@@ -10,12 +10,14 @@ import 'package:fitapp/core/services/food_api_service.dart';
 import 'package:fitapp/core/services/food_repository.dart';
 import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/meal_ai_service.dart';
+import 'package:fitapp/core/utils/diet_schedule_utils.dart';
 
 import 'package:fitapp/features/common/scan_barcode_screen.dart';
 import 'package:fitapp/features/1_workout_tracker/presentation/pages/workout_in_progress_screen.dart';
 import 'package:fitapp/features/5_nutrition/presentation/pages/meal_details_screen.dart';
 import 'package:fitapp/features/7_settings/presentation/pages/settings_screen.dart';
 import 'package:fitapp/features/3_planner/presentation/pages/new_plan_flow_screen.dart';
+import 'package:fitapp/features/3_planner/domain/value_objects/slug.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,9 +31,34 @@ class _HomeScreenState extends State<HomeScreen> {
   String _nextSessionDayName = '';
   double _consumedKcal = 0;
   double _dailyGoalKcal = 2000;
+  String? _dietGoalLabel;
+  String? _dietWeightGoal;
+  bool _planEnded = false;
+
+  static const int _defaultDurationDays = 180;
 
   final _kpiCtl = PageController();
   int _kpiIndex = 0;
+
+  DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  DateTime _defaultEndFor(DateTime start) =>
+      _dateOnly(start.add(const Duration(days: _defaultDurationDays - 1)));
+
+  DateTime? _resolveScheduleEndDate({
+    required DateTime? start,
+    required DateTime? storedEnd,
+  }) {
+    if (start == null) return null;
+    final startOnly = _dateOnly(start);
+    if (storedEnd != null) {
+      final normalized = _dateOnly(storedEnd);
+      if (!normalized.isBefore(startOnly)) {
+        return normalized;
+      }
+    }
+    return _defaultEndFor(startOnly);
+  }
 
   @override
   void initState() {
@@ -47,6 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _loadDashboard() {
     final hive = context.read<HiveService>();
+    _nextSession = null;
+    _nextSessionDayName = '';
+    _planEnded = false;
 
     // Próximo treino pela primeira rotina
     final routines = hive.getBox<WorkoutRoutine>('workout_routines').values.toList();
@@ -54,13 +84,35 @@ class _HomeScreenState extends State<HomeScreen> {
       final r = routines.first;
       final days = r.days.toList();
       if (days.isNotEmpty) {
-        final today = DateTime.now();
-        final diff = today.difference(r.startDate).inDays;
-        final idx = diff >= 0 && days.isNotEmpty ? diff % days.length : 0;
-        final day = days[idx];
-        _nextSessionDayName = day.name;
-        final sessions = day.sessions.toList();
-        if (sessions.isNotEmpty) _nextSession = sessions.first;
+        final routineStart = _dateOnly(r.startDate);
+        final today = _dateOnly(DateTime.now());
+        final scheduleBox = hive.getBox<WorkoutRoutineSchedule>('routine_schedules');
+        final slug = toSlug(r.name);
+        final scheduleMatches =
+            scheduleBox.values.where((s) => s.routineSlug == slug).toList();
+        final schedule = scheduleMatches.isEmpty ? null : scheduleMatches.first;
+        final endDate = _resolveScheduleEndDate(
+          start: routineStart,
+          storedEnd: schedule?.endDate,
+        );
+
+        _planEnded = endDate != null && today.isAfter(endDate);
+
+        if (!_planEnded) {
+          final diff = today.difference(routineStart).inDays;
+          final idx = diff >= 0 && days.isNotEmpty ? diff % days.length : 0;
+          final day = days[idx];
+          _nextSessionDayName = day.name;
+          final sessions = day.sessions.toList();
+          if (sessions.isNotEmpty) {
+            _nextSession = sessions.first;
+          } else {
+            _nextSession = null;
+          }
+        } else {
+          _nextSessionDayName = '';
+          _nextSession = null;
+        }
       }
     }
 
@@ -81,6 +133,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
     final profile = hive.getUserProfile();
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
+    _dietGoalLabel = null;
+    _dietWeightGoal = null;
+
+    final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+    if (dietTarget != null) {
+      final parts = <String>[];
+      if (dietTarget.blockName != null && dietTarget.blockName!.isNotEmpty) {
+        parts.add(dietTarget.blockName!);
+      }
+      if (dietTarget.dayName != null && dietTarget.dayName!.isNotEmpty) {
+        parts.add(dietTarget.dayName!);
+      }
+      if (dietTarget.weightGoalLabel != null &&
+          dietTarget.weightGoalLabel!.isNotEmpty) {
+        parts.add(dietTarget.weightGoalLabel!);
+      }
+      if (parts.isNotEmpty) {
+        _dietGoalLabel = parts.join(' • ');
+      }
+      if (dietTarget.hasCalorieGoal) {
+        _dailyGoalKcal = dietTarget.calories;
+      }
+      _dietWeightGoal = dietTarget.weightGoal;
+    }
 
     if (mounted) setState(() {});
   }
@@ -103,12 +179,29 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final r = routines.first;
     final days = r.days.toList();
-    final now = DateTime.now();
+    final scheduleBox = hive.getBox<WorkoutRoutineSchedule>('routine_schedules');
+    final slug = toSlug(r.name);
+    final scheduleMatches = scheduleBox.values.where((s) => s.routineSlug == slug).toList();
+    final schedule = scheduleMatches.isEmpty ? null : scheduleMatches.first;
+
+    final routineStart = _dateOnly(r.startDate);
+    final now = _dateOnly(DateTime.now());
+    final endDate = _resolveScheduleEndDate(start: routineStart, storedEnd: schedule?.endDate);
+
+    if (endDate != null && now.isAfter(endDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Plano concluído. Gere uma nova rotina com a IA.')),
+      );
+      return;
+    }
 
     final items = <({DateTime date, WorkoutSession session, String dayName})>[];
     for (int i = 0; i < min(10, days.length * 2); i++) {
-      final date = now.add(Duration(days: i));
-      final idx = date.difference(r.startDate).inDays % days.length;
+      final date = _dateOnly(now.add(Duration(days: i)));
+      if (endDate != null && date.isAfter(endDate)) break;
+      final diff = date.difference(routineStart).inDays;
+      if (diff < 0) continue;
+      final idx = days.isEmpty ? 0 : diff % days.length;
       final d = days[idx];
       if (d.sessions.isEmpty) continue;
       items.add((date: date, session: d.sessions.first, dayName: d.name));
@@ -298,8 +391,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
 
+              final hive = context.read<HiveService>();
+              final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+              final bias = DietScheduleUtils.calorieBiasForGoal(
+                dietTarget?.weightGoal ?? _dietWeightGoal,
+              );
+
               final ai = MealAIService(llm);
-              final meal = await ai.fromText(desc);
+              final meal = await ai.fromText(desc, calorieBias: bias);
 
               Navigator.pop(ctx);
               if (meal == null) {
@@ -308,7 +407,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
 
-              final hive = context.read<HiveService>();
               await hive.getBox<Meal>('meals').add(meal);
 
               final newMealEntry = MealEntry(
@@ -456,8 +554,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_nextSession != null ? 'Próximo Treino' : 'Nenhum treino agendado', style: Theme.of(context).textTheme.titleMedium),
-                          if (_nextSession != null) ...[
+                          Text(
+                            _planEnded
+                                ? 'Plano concluído'
+                                : _nextSession != null
+                                    ? 'Próximo Treino'
+                                    : 'Nenhum treino agendado',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          if (_planEnded) ...[
+                            const SizedBox(height: 4),
+                            const Text('Seu plano atual foi concluído. Gere uma nova rotina para continuar os treinos.'),
+                            const SizedBox(height: 8),
+                            ElevatedButton(
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const NewPlanFlowScreen()),
+                              ),
+                              child: const Text('Criar novo plano'),
+                            ),
+                          ] else if (_nextSession != null) ...[
                             const SizedBox(height: 4),
                             Text('${_nextSession!.name}  •  Dia: $_nextSessionDayName'),
                             const SizedBox(height: 8),
@@ -495,6 +611,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           ]),
                           const Divider(height: 20),
                           Text('Calorias hoje: ${_consumedKcal.toStringAsFixed(0)} / ${_dailyGoalKcal.toStringAsFixed(0)} kcal'),
+                          if (_dietGoalLabel != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Plano: $_dietGoalLabel',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ],
                           const SizedBox(height: 6),
                           LinearProgressIndicator(value: progress),
                         ],

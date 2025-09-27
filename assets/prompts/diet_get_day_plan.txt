@@ -11,6 +11,7 @@ ENTRADAS:
 - Objetivo principal (texto): "{user_goal}"
 - Preferências e restrições alimentares do usuário (strings livres): {user_food_prefs}
 - Dia de dieta alvo (placeholder/nome/descrição): {diet_day_json}
+  • Pode conter "block_weight_goal": "lose" | "maintain" | "gain" indicando o objetivo do ciclo.
 - Catálogo resumido de refeições existentes (REUTILIZE quando fizer sentido):
   {existing_meals_summary}
   • Cada item tem: { "name": "snake_case", "calories_per_100g": num, "protein_per_100g": num, "carbs_per_100g": num, "fat_per_100g": num }
@@ -41,14 +42,19 @@ REGRAS DE GERAÇÃO (PT-BR):
    - Não gere texto fora do objeto JSON.
    - Nomes de refeições: curtos, descritivos, reusáveis (ex.: "cafe_proteico_aveia", "almoco_frango_arroz_feijao").
    - É aceitável repetir uma refeição (ex.: "cafe_proteico_aveia" no café e no lanche) com **quantidades diferentes**.
-6) **Preferências e restrições**:
+6) **Objetivo do block**:
+   - "block_weight_goal" = "lose": mantenha sensação de déficit controlado; se necessário, aceite ficar até ~10% ACIMA das metas padrão para aderência.
+   - "block_weight_goal" = "gain": privilegie saciedade sem excessos; mantenha ~10% ABAIXO das metas padrão se estiver confortável.
+   - "block_weight_goal" = "maintain" ou ausente: siga as metas como fornecidas.
+   - As metas em {day_targets_json} já refletem o ajuste sugerido; use o campo como orientação qualitativa.
+7) **Preferências e restrições**:
    - Respeite "user_food_prefs" quando possível (ex.: sem lactose, vegetariano, evitar frituras, etc.).
    - Ajuste componentes, mantendo praticidade e foco no objetivo ("{user_goal}").
-7) **Notas**:
+8) **Notas**:
    - Campo "notes" de cada refeição é **curto e objetivo** (ex.: "pré-treino", "opção sem lactose", "incluir salada crua").
    - Se você ficou fora da tolerância em algum macro/energia, diga rapidamente **qual** e **qual ajuste simples** você faria (ex.: +10 g azeite no almoço).
-8) **Idioma**: Português do Brasil.
-9) **Sem unidades mistas**: sempre em **gramas** para os componentes; litros/gramas de fibra não entram na estrutura básica de saída (mencione em "notes" se achar útil).
+9) **Idioma**: Português do Brasil.
+10) **Sem unidades mistas**: sempre em **gramas** para os componentes; litros/gramas de fibra não entram na estrutura básica de saída (mencione em "notes" se achar útil).
 
 ──────────────────────────────────────────────────────────────────────────────
 

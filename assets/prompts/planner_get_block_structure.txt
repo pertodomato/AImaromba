@@ -7,6 +7,9 @@ ENTRADA:
 REGRAS:
 - Cada day pode ter 0..N sessões (0 = descanso).
 - Reutilize DAYS existentes quando compatíveis; evite duplicatas.
+- Considere o contexto do block (fase de volume, deload, cutting, base aeróbica, etc.) ao nomear e descrever os dias.
+- Quando o usuário indicar músculos de FOCO, distribua os dias para que todos os grupos principais recebam estímulo, porém com
+  maior frequência/volume para os músculos de foco (ex.: costas/braços 2x, peito/pernas 1x).
 - Saída estrita em JSON, sem texto extra.
 
 FORMATO:
@@ -44,6 +47,37 @@ EXEMPLO 2 (Block Upper/Lower semanal):
     { "placeholder_id": "lower_2", "name": "Lower B", "description": "Variações de inferiores.", "is_rest": false },
     { "placeholder_id": "rest2", "name": "Descanso", "description": "Sono e recuperação.", "is_rest": true },
     { "placeholder_id": "rest3", "name": "Descanso", "description": "Alongamento leve.", "is_rest": true }
+  ],
+  "reuse_days_by_name": []
+}
+
+EXEMPLO 3 (Block Bulking com foco em volume):
+{
+  "block_id": "bulk_microciclo",
+  "days_to_create": [
+    { "placeholder_id": "push_pesado", "name": "Push Pesado", "description": "Supino e acessórios de peito/tríceps em alto volume.", "is_rest": false },
+    { "placeholder_id": "pull_pesado", "name": "Pull Pesado", "description": "Costas espessas, remadas e puxadas com volume moderado/alto.", "is_rest": false },
+    { "placeholder_id": "lower_hipertrofia", "name": "Lower Hipertrofia", "description": "Agachamento + acessórios de quadríceps/glúteos.", "is_rest": false },
+    { "placeholder_id": "push_acessorios", "name": "Push Acessórios", "description": "Variações inclinado/ombros + tríceps foco em pump.", "is_rest": false },
+    { "placeholder_id": "pull_acessorios", "name": "Pull Acessórios", "description": "Costas largura + bíceps/metcon leve.", "is_rest": false },
+    { "placeholder_id": "lower_posterior", "name": "Lower Posterior", "description": "Posteriores, levantamento romeno e core anti-extensão.", "is_rest": false },
+    { "placeholder_id": "descanso_ativo", "name": "Descanso Ativo", "description": "Mobilidade, caminhada leve, recuperação para manter alto volume.", "is_rest": true }
+  ],
+  "reuse_days_by_name": []
+}
+
+EXEMPLO 4 (Block Quinzenal focado em Costas e Braços mantendo corpo todo):
+{
+  "block_id": "upper_lower_focus_back_arms",
+  "days_to_create": [
+    { "placeholder_id": "upper_back_arms_a", "name": "Upper Costas/Braços A", "description": "Costas espessas + bíceps/tríceps pesado.", "is_rest": false },
+    { "placeholder_id": "lower_forca", "name": "Lower Força", "description": "Agachamento, posteriores e core.", "is_rest": false },
+    { "placeholder_id": "descanso1", "name": "Descanso", "description": "Mobilidade e caminhada leve.", "is_rest": true },
+    { "placeholder_id": "upper_chest_shoulders", "name": "Upper Peito/Ombros", "description": "Peito completo + deltoides para manter equilíbrio.", "is_rest": false },
+    { "placeholder_id": "upper_back_arms_b", "name": "Upper Costas/Braços B", "description": "Costas largura + braços em variações.", "is_rest": false },
+    { "placeholder_id": "lower_metabolico", "name": "Lower Metabólico", "description": "Pernas com enfoque em volume moderado.", "is_rest": false },
+    { "placeholder_id": "descanso2", "name": "Descanso", "description": "Recuperação ativa.", "is_rest": true },
+    { "placeholder_id": "descanso3", "name": "Descanso", "description": "Sono e alongamentos leves.", "is_rest": true }
   ],
   "reuse_days_by_name": []
 }
