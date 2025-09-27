@@ -20,6 +20,7 @@ class HiveDietRepo {
   final Box<DietDayPlan> dietDayPlansBox;
   final Box<DietDayMealPlanItem> dietDayMealPlanItemsBox;
   final Box<DietRoutineSchedule> dietRoutineScheduleBox;
+  final Box<String> dietBlockGoalsBox;
 
   // --- Campos-função para compatibilidade com chamadas ?.call no orchestrator ---
   Meal? Function(String slug) findMealBySlug;
@@ -53,6 +54,7 @@ class HiveDietRepo {
     required this.dietDayPlansBox,
     required this.dietDayMealPlanItemsBox,
     required this.dietRoutineScheduleBox,
+    required this.dietBlockGoalsBox,
   })  : findMealBySlug = _noopFindMeal,
         createPlanItem = _noopCreatePlanItem,
         upsertDietDayPlan = _noopUpsertPlan,
@@ -91,6 +93,20 @@ class HiveDietRepo {
           endDate: endDate,
         );
   }
+
+  void setDietBlockGoal({
+    required DietBlock block,
+    String? weightGoal,
+  }) {
+    final key = block.slug;
+    if (weightGoal == null || weightGoal.isEmpty) {
+      dietBlockGoalsBox.delete(key);
+    } else {
+      dietBlockGoalsBox.put(key, weightGoal);
+    }
+  }
+
+  String? getDietBlockGoal(String blockSlug) => dietBlockGoalsBox.get(blockSlug);
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -501,5 +517,6 @@ class HiveDietRepo {
         dietDayPlansBox: s.dietDayPlansBox,
         dietDayMealPlanItemsBox: s.dietDayMealPlanItemsBox,
         dietRoutineScheduleBox: s.dietRoutineSchedulesBox,
+        dietBlockGoalsBox: s.dietBlockGoalsBox,
       );
 }

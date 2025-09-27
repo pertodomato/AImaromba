@@ -32,6 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _consumedKcal = 0;
   double _dailyGoalKcal = 2000;
   String? _dietGoalLabel;
+  String? _dietWeightGoal;
 
   bool _planEnded = false;
 
@@ -134,6 +135,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final profile = hive.getUserProfile();
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
     _dietGoalLabel = null;
+    _dietWeightGoal = null;
+
+    final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+    if (dietTarget != null) {
+      final label = dietTarget.displayLabel;
+      if (label != null) {
+        _dietGoalLabel = label;
 
     final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
     if (dietTarget != null) {
@@ -150,6 +158,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (dietTarget.hasCalorieGoal) {
         _dailyGoalKcal = dietTarget.calories;
       }
+      _dietWeightGoal = dietTarget.weightGoal;
     }
 
     if (mounted) setState(() {});
@@ -385,8 +394,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
 
+              final hive = context.read<HiveService>();
+              final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+              final bias = DietScheduleUtils.calorieBiasForGoal(
+                dietTarget?.weightGoal ?? _dietWeightGoal,
+              );
+
               final ai = MealAIService(llm);
-              final meal = await ai.fromText(desc);
+              final meal = await ai.fromText(desc, calorieBias: bias);
 
               Navigator.pop(ctx);
               if (meal == null) {
@@ -395,7 +410,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 return;
               }
 
-              final hive = context.read<HiveService>();
               await hive.getBox<Meal>('meals').add(meal);
 
               final newMealEntry = MealEntry(

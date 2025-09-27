@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:fitapp/core/constants/diet_weight_goal.dart';
 import 'package:fitapp/core/models/diet_block.dart';
 import 'package:fitapp/core/models/diet_day.dart';
 import 'package:fitapp/core/models/meal.dart';
@@ -419,6 +420,7 @@ class PlannerOrchestrator {
     final Map<String, Meal> mealBySlug = {};
 
     final Map<String, DietBlock> blocksCreated = {};
+    final Map<String, String> blockGoals = {};
     final blocks = (routineJson['blocks_to_create'] as List?) ?? const [];
     int doneBlocks = 0;
 
@@ -426,6 +428,16 @@ class PlannerOrchestrator {
       final ph = (b['placeholder_id'] ?? '').toString();
       final bName = (b['name'] ?? 'semana_tipo').toString();
       final bDesc = (b['description'] ?? '').toString();
+      final weightGoal =
+          DietWeightGoal.normalize((b['weight_goal'] ?? '').toString());
+      final existingGoal = weightGoal ??
+          dietRepo.getDietBlockGoal(toSlug(bName)) ??
+          dietRepo.getDietBlockGoal(ph);
+      if (weightGoal != null) {
+        blockGoals[ph] = weightGoal;
+      } else if (existingGoal != null) {
+        blockGoals[ph] = existingGoal;
+      }
 
       yield ProgressEvent(
         'Detalhando bloco de dieta "$bName"...',
@@ -437,7 +449,8 @@ class PlannerOrchestrator {
         dietBlockPlaceholder: {
           'placeholder_id': ph,
           'name': bName,
-          'description': bDesc
+          'description': bDesc,
+          if (weightGoal != null) 'weight_goal': weightGoal,
         },
         existingDietDays: const [],
         userFoodPrefs: foodPrefs,
@@ -487,6 +500,13 @@ class PlannerOrchestrator {
         days.add(dayEntity);
 
         // 3) Day Plan com quantidades (via LLM) + persistência (tolerância ±5%)
+        final blockGoal = blockGoals[ph];
+        final bias = DietWeightGoal.calorieBias(blockGoal);
+        final scaledTargets = <String, num>{
+          for (final entry in defaultDayTargets.entries)
+            entry.key: entry.value * bias,
+        };
+
         final planJson = await llm.getDietDayPlan(
           userProfile: userProfile,
           userGoal: userGoal,
@@ -495,6 +515,7 @@ class PlannerOrchestrator {
             'diet_day_id': (d['placeholder_id'] ?? '').toString(),
             'name': (d['name'] ?? '').toString(),
             'description': (d['description'] ?? '').toString(),
+            if (blockGoal != null) 'block_weight_goal': blockGoal,
           },
           existingMealsSummary: baseMeals
               .map((m) => {
@@ -503,9 +524,9 @@ class PlannerOrchestrator {
                     'protein_per_100g': m.proteinPer100g,
                     'carbs_per_100g': m.carbsPer100g,
                     'fat_per_100g': m.fatPer100g,
-                  })
+              })
               .toList(),
-          dayTargets: defaultDayTargets,
+          dayTargets: scaledTargets,
         );
 
         final items = <dynamic>[];
@@ -589,6 +610,12 @@ class PlannerOrchestrator {
         description: bDesc,
         daysOrdered: days,
       );
+      if (weightGoal != null) {
+        dietRepo.setDietBlockGoal(block: block, weightGoal: weightGoal);
+      }
+      blockGoals[ph] = blockGoals[ph] ??
+          dietRepo.getDietBlockGoal(block.slug) ??
+          weightGoal;
       blocksCreated[ph] = block;
       doneBlocks++;
     }

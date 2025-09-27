@@ -8,6 +8,15 @@ ENTRADAS:
 REGRAS:
 - Reutilize blocks existentes quando possível.
 - "repetition_schema": "Semanal" | "Quinzenal" | "Mensal".
+- Respeite fases distintas mencionadas pelo usuário (ex.: bulking → cutting, manutenção → déficit). Cada fase deve ter placeholders
+  próprios e aparecer na sequência na ordem cronológica, repetindo a quantidade de vezes necessária para cumprir a duração desejada.
+- Ao montar "block_sequence_placeholders", cubra apenas o período planejado (sem loops infinitos). Para durações finitas, repita
+  cada placeholder somente até completar o número de dias solicitado.
+- Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
+  com o total planejado e/ou "end_date" (YYYY-MM-DD). Caso contrário, deixe como null.
+- Para cada block novo, informe "weight_goal" com um dos valores: "lose" (perder peso),
+  "maintain" (manter) ou "gain" (ganhar). Escolha com base no objetivo do usuário
+  e na etapa do ciclo (ex.: bulking = "gain", cutting = "lose").
 - Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
   com o total planejado e/ou "end_date" (YYYY-MM-DD). Caso contrário, deixe como null.
 - Saída estrita em JSON. Sem texto fora do JSON.
@@ -23,7 +32,12 @@ FORMATO:
     "block_sequence_placeholders": ["placeholder_1","placeholder_2"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "string", "name": "string", "description": "string" }
+    {
+      "placeholder_id": "string",
+      "name": "string",
+      "description": "string",
+      "weight_goal": "lose|maintain|gain"
+    }
   ],
   "reuse_blocks_by_name": ["Block já existente 1"]
 }
@@ -39,7 +53,12 @@ EXEMPLO 1 (semana normal + fds livre):
     "block_sequence_placeholders": ["semana_com_fds_livre"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "semana_com_fds_livre", "name": "Semana com Fim de Semana Livre", "description": "Seg–Sex regrado; Sáb–Dom com 1 refeição livre/dia." }
+    {
+      "placeholder_id": "semana_com_fds_livre",
+      "name": "Semana com Fim de Semana Livre",
+      "description": "Seg–Sex regrado; Sáb–Dom com 1 refeição livre/dia.",
+      "weight_goal": "maintain"
+    }
   ],
   "reuse_blocks_by_name": []
 }
@@ -49,13 +68,60 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
   "diet_routine": {
     "name": "Ciclo 10/4 Déficit-Manutenção",
     "description": "10 dias em déficit, 4 dias em manutenção.",
-    "repetition_schema": "Quinzenal",
+    "repetition_schema": "Quinzenal"
     "target_duration_days": 84,
     "end_date": "2024-11-15",
     "block_sequence_placeholders": ["dez_deficit_quatro_manutencao"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "dez_deficit_quatro_manutencao", "name": "10/4", "description": "10 dias de déficit seguidos de 4 dias de manutenção." }
+    {
+      "placeholder_id": "dez_deficit_quatro_manutencao",
+      "name": "10/4",
+      "description": "10 dias de déficit seguidos de 4 dias de manutenção.",
+      "weight_goal": "lose"
+    }
+  ],
+  "reuse_blocks_by_name": []
+}
+
+EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
+{
+  "diet_routine": {
+    "name": "Nutrição Bulking 80d + Cutting 20d",
+    "description": "Oito semanas focadas em superávit controlado seguidas de quatro semanas de déficit moderado.",
+    "repetition_schema": "Semanal",
+    "target_duration_days": 100,
+    "end_date": "2024-12-31",
+    "block_sequence_placeholders": [
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "bulking_semana",
+      "cutting_semana",
+      "cutting_semana",
+      "cutting_semana"
+    ]
+  },
+  "blocks_to_create": [
+    {
+      "placeholder_id": "bulking_semana",
+      "name": "Semana Bulking",
+      "description": "Superávit de ~10%, refeições densas em energia e foco em carbo ao redor dos treinos.",
+      "weight_goal": "gain"
+    },
+    {
+      "placeholder_id": "cutting_semana",
+      "name": "Semana Cutting",
+      "description": "Déficit moderado com priorização de proteína alta, legumes e controle de refeições livres.",
+      "weight_goal": "lose"
+    }
   ],
   "reuse_blocks_by_name": []
 }
