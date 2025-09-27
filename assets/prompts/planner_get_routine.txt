@@ -13,6 +13,8 @@ REGRAS:
 - Respeite fases distintas descritas pelo usuário (ex.: bulking → cutting, base → pico). Cada fase deve ter placeholders próprios
   e aparecer na sequência na ordem cronológica desejada, repetindo cada placeholder quantas vezes forem necessárias para atingir
 a duração mencionada.
+- Monte "block_sequence_placeholders" apenas para o período planejado (sem loops infinitos). Em ciclos finitos, repita cada placeholder
+  somente até completar a contagem de dias solicitada.
 - Se o usuário declarar músculos de foco, garanta blocks que cubram todo o corpo ao longo da semana/quinzena, mas com maior frequência ou volume para os músculos priorizados (ex.: foco em costas/braços → 2 sessões para eles, 1 para peito/pernas).
 - Campos obrigatórios. Sem texto fora do JSON.
 - Schemas e nomes estáveis em snake_case.

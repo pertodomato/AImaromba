@@ -10,6 +10,8 @@ REGRAS:
 - "repetition_schema": "Semanal" | "Quinzenal" | "Mensal".
 - Respeite fases distintas mencionadas pelo usuário (ex.: bulking → cutting, manutenção → déficit). Cada fase deve ter placeholders
   próprios e aparecer na sequência na ordem cronológica, repetindo a quantidade de vezes necessária para cumprir a duração desejada.
+- Ao montar "block_sequence_placeholders", cubra apenas o período planejado (sem loops infinitos). Para durações finitas, repita
+  cada placeholder somente até completar o número de dias solicitado.
 - Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
   com o total planejado e/ou "end_date" (YYYY-MM-DD). Caso contrário, deixe como null.
 - Para cada block novo, informe "weight_goal" com um dos valores: "lose" (perder peso),

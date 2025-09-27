@@ -28,6 +28,23 @@ class DietScheduleTarget {
 
   bool get hasCalorieGoal => calories > 0;
   String? get weightGoalLabel => DietWeightGoal.label(weightGoal);
+
+  List<String> get labelParts {
+    final parts = <String>[];
+    if (blockName != null && blockName!.isNotEmpty) {
+      parts.add(blockName!);
+    }
+    if (dayName != null && dayName!.isNotEmpty) {
+      parts.add(dayName!);
+    }
+    final goalLabel = weightGoalLabel;
+    if (goalLabel != null && goalLabel.isNotEmpty) {
+      parts.add(goalLabel);
+    }
+    return parts;
+  }
+
+  String? get displayLabel => labelParts.isEmpty ? null : labelParts.join(' • ');
 }
 
 class DietScheduleUtils {
@@ -156,6 +173,11 @@ class DietScheduleUtils {
         }
       }
 
+      final weightGoal = activeBlock != null
+          ? hive.dietBlockGoalsBox.get(activeBlock.slug) ??
+              hive.dietBlockGoalsBox.get(toSlug(activeBlock.name))
+          : null;
+
       final candidate = DietScheduleTarget(
         calories: calories,
         protein: protein,
@@ -163,10 +185,7 @@ class DietScheduleUtils {
         fat: fat,
         dayName: dietDay.name,
         blockName: activeBlock?.name,
-        weightGoal: activeBlock != null
-            ? hive.dietBlockGoalsBox.get(activeBlock.slug) ??
-                hive.dietBlockGoalsBox.get(toSlug(activeBlock.name))
-            : null,
+        weightGoal: weightGoal,
       );
 
       if (selectedStart == null || start.isAfter(selectedStart)) {
