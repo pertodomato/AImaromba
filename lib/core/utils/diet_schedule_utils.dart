@@ -45,6 +45,9 @@ class DietScheduleTarget {
   }
 
   String? get displayLabel => labelParts.isEmpty ? null : labelParts.join(' • ');
+=======
+
+  bool get hasCalorieGoal => calories > 0;
 }
 
 class DietScheduleUtils {
@@ -178,6 +181,7 @@ class DietScheduleUtils {
               hive.dietBlockGoalsBox.get(toSlug(activeBlock.name))
           : null;
 
+=======
       final candidate = DietScheduleTarget(
         calories: calories,
         protein: protein,
@@ -186,6 +190,7 @@ class DietScheduleUtils {
         dayName: dietDay.name,
         blockName: activeBlock?.name,
         weightGoal: weightGoal,
+=======
       );
 
       if (selectedStart == null || start.isAfter(selectedStart)) {
@@ -199,4 +204,5 @@ class DietScheduleUtils {
 
   static double calorieBiasForGoal(String? goal) =>
       DietWeightGoal.calorieBias(goal);
+=======
 }

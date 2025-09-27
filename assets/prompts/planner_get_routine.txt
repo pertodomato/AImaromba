@@ -63,6 +63,8 @@ EXEMPLO 2 (Upper/Lower 4x com 3 descansos):
     "repetition_schema": "Semanal",
     "target_duration_days": null,
     "end_date": null,
+    "target_duration_days": 84,
+    "end_date": "2024-09-30",
     "block_sequence_placeholders": ["upper_lower_semana"]
   },
   "blocks_to_create": [
@@ -82,7 +84,8 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
     "block_sequence_placeholders": [
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
-      "cut_microciclo", "cut_microciclo", "cut_microciclo", "cut_microciclo"
+      "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
+      "cut_microciclo", "cut_microciclo", "cut_microciclo"
     ]
   },
   "blocks_to_create": [

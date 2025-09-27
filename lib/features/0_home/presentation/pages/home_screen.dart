@@ -33,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _dailyGoalKcal = 2000;
   String? _dietGoalLabel;
   String? _dietWeightGoal;
+
   bool _planEnded = false;
 
   static const int _defaultDurationDays = 180;
@@ -141,6 +142,18 @@ class _HomeScreenState extends State<HomeScreen> {
       final label = dietTarget.displayLabel;
       if (label != null) {
         _dietGoalLabel = label;
+
+    final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+    if (dietTarget != null) {
+      final parts = <String>[];
+      if (dietTarget.blockName != null && dietTarget.blockName!.isNotEmpty) {
+        parts.add(dietTarget.blockName!);
+      }
+      if (dietTarget.dayName != null && dietTarget.dayName!.isNotEmpty) {
+        parts.add(dietTarget.dayName!);
+      }
+      if (parts.isNotEmpty) {
+        _dietGoalLabel = parts.join(' • ');
       }
       if (dietTarget.hasCalorieGoal) {
         _dailyGoalKcal = dietTarget.calories;

@@ -56,6 +56,16 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
         _dietGoalLabel = label;
       }
       _dietWeightGoal = dietTarget.weightGoal;
+      final parts = <String>[];
+      if (dietTarget.blockName != null && dietTarget.blockName!.isNotEmpty) {
+        parts.add(dietTarget.blockName!);
+      }
+      if (dietTarget.dayName != null && dietTarget.dayName!.isNotEmpty) {
+        parts.add(dietTarget.dayName!);
+      }
+      if (parts.isNotEmpty) {
+        _dietGoalLabel = parts.join(' • ');
+      }
     }
     setState(() {});
   }
