@@ -25,6 +25,7 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
   double _kcal = 0;
   double _dailyGoalKcal = 0;
   String? _dietGoalLabel;
+  String? _dietWeightGoal;
   @override
   void initState() {
     super.initState();
@@ -43,6 +44,7 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
     final profile = hive.getUserProfile();
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
     _dietGoalLabel = null;
+    _dietWeightGoal = null;
 
     final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
     if (dietTarget != null) {
@@ -56,6 +58,15 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
       if (dietTarget.dayName != null && dietTarget.dayName!.isNotEmpty) {
         parts.add(dietTarget.dayName!);
       }
+      if (dietTarget.weightGoalLabel != null &&
+          dietTarget.weightGoalLabel!.isNotEmpty) {
+        parts.add(dietTarget.weightGoalLabel!);
+      }
+      if (parts.isNotEmpty) {
+        _dietGoalLabel = parts.join(' • ');
+      }
+      _dietWeightGoal = dietTarget.weightGoal;
+
       if (parts.isNotEmpty) {
         _dietGoalLabel = parts.join(' • ');
       }
@@ -69,7 +80,13 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
     final hive = context.read<HiveService>();
     final mealsBox = hive.getBox<Meal>('meals');
 
-    Meal? meal = mealsBox.values.where((m) => m.id == barcode).cast<Meal?>().firstOrNull;
+    Meal? meal;
+    try {
+      meal = mealsBox.values.firstWhere((m) => m.id == barcode);
+    } catch (_) {
+      meal = null;
+    }
+
     meal ??= await FoodApiService().fetchFoodByBarcode(barcode);
 
     if (meal == null) {
@@ -77,9 +94,11 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alimento não encontrado.')));
       return;
     }
-    if (!mealsBox.values.any((m) => m.id == meal!.id)) await mealsBox.add(meal);
+    final mealToStore = meal!;
+    final alreadyStored = mealsBox.values.any((m) => m.id == mealToStore.id);
+    if (!alreadyStored) await mealsBox.add(mealToStore);
 
-    await _collectAndSave(meal);
+    await _collectAndSave(mealToStore);
   }
 
   Future<void> _addByTaco() async {
@@ -153,7 +172,12 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dados inválidos ou IA não configurada.')));
                 return;
               }
-              final meal = await MealAIService(llm).fromText(desc);
+              final hive = context.read<HiveService>();
+              final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+              final bias = DietScheduleUtils.calorieBiasForGoal(
+                dietTarget?.weightGoal ?? _dietWeightGoal,
+              );
+              final meal = await MealAIService(llm).fromText(desc, calorieBias: bias);
               if (meal == null) {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não retornou alimento.')));
                 return;

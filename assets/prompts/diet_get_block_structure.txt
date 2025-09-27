@@ -6,7 +6,7 @@ CONSISTÊNCIA: nomes e placeholders em snake_case estável.
 
 ENTRADAS:
 - Diet Block (placeholder): {diet_block_placeholder_json}
-  • Ex.: {"placeholder_id":"semana_tipo_1","name":"Semana Tipo 1","description":"Padrão de corte leve"}
+  • Ex.: {"placeholder_id":"semana_tipo_1","name":"Semana Tipo 1","description":"Padrão de corte leve","weight_goal":"lose"}
 - Diet Days já existentes no banco (opcional): {existing_diet_days}
   • Ex.: [{"name":"Dia de Semana","slug":"dia_de_semana"},{"name":"Fim de Semana","slug":"fim_de_semana"}]
 - Preferências alimentares do usuário (opcional): {user_food_prefs}
@@ -27,9 +27,10 @@ REGRAS:
 5) Varie de forma prática:
    - Semana típica: normalmente 2–4 tipos (ex.: “Dia de Semana”, “Fim de Semana”, “Refeição Livre”, “Refeed”).
    - Ciclos (ex.: 10/4 déficit/manutenção): podem ser 2–4 tipos (“Déficit A”, “Déficit B”, “Manutenção A”, “Manutenção B”).
-6) **NÃO** inclua metas numéricas (kcal/macros) aqui; apenas a **ideia** do dia. Quantidades virão em diet_get_day_plan.
-7) Considere **user_food_prefs** apenas para orientar a descrição (ex.: “preferir frango/ovos/aveia no café”), sem engessar marcas.
-8) **JSON estrito**: nenhum texto fora do objeto.
+6) Use "weight_goal" (quando presente) apenas como contexto: dias dentro de um block "lose" devem reforçar déficit; "gain" enfatiza superávit controlado; "maintain" busca equilíbrio.
+7) **NÃO** inclua metas numéricas (kcal/macros) aqui; apenas a **ideia** do dia. Quantidades virão em diet_get_day_plan.
+8) Considere **user_food_prefs** apenas para orientar a descrição (ex.: “preferir frango/ovos/aveia no café”), sem engessar marcas.
+9) **JSON estrito**: nenhum texto fora do objeto.
 
 FORMATO DE SAÍDA (ESTRITO):
 {

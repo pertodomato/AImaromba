@@ -1,3 +1,5 @@
+import 'package:fitapp/core/constants/diet_weight_goal.dart';
+
 import 'package:fitapp/core/models/diet_block.dart';
 import 'package:fitapp/core/models/diet_day.dart';
 import 'package:fitapp/core/models/diet_day_plan.dart';
@@ -14,6 +16,8 @@ class DietScheduleTarget {
     required this.fat,
     this.dayName,
     this.blockName,
+    this.weightGoal,
+
   });
 
   final double calories;
@@ -22,6 +26,10 @@ class DietScheduleTarget {
   final double fat;
   final String? dayName;
   final String? blockName;
+  final String? weightGoal;
+
+  bool get hasCalorieGoal => calories > 0;
+  String? get weightGoalLabel => DietWeightGoal.label(weightGoal);
 
   bool get hasCalorieGoal => calories > 0;
 }
@@ -159,6 +167,10 @@ class DietScheduleUtils {
         fat: fat,
         dayName: dietDay.name,
         blockName: activeBlock?.name,
+        weightGoal: activeBlock != null
+            ? hive.dietBlockGoalsBox.get(activeBlock.slug) ??
+                hive.dietBlockGoalsBox.get(toSlug(activeBlock.name))
+            : null,
       );
 
       if (selectedStart == null || start.isAfter(selectedStart)) {
@@ -169,4 +181,8 @@ class DietScheduleUtils {
 
     return selectedTarget;
   }
+
+  static double calorieBiasForGoal(String? goal) =>
+      DietWeightGoal.calorieBias(goal);
+
 }
