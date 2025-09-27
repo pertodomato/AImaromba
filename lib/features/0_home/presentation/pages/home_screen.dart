@@ -33,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> {
   double _dailyGoalKcal = 2000;
   String? _dietGoalLabel;
   String? _dietWeightGoal;
+
   bool _planEnded = false;
 
   static const int _defaultDurationDays = 180;
@@ -135,7 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
     _dietGoalLabel = null;
     _dietWeightGoal = null;
-
     final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
     if (dietTarget != null) {
       final parts = <String>[];
@@ -149,6 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
           dietTarget.weightGoalLabel!.isNotEmpty) {
         parts.add(dietTarget.weightGoalLabel!);
       }
+
       if (parts.isNotEmpty) {
         _dietGoalLabel = parts.join(' • ');
       }
@@ -156,6 +157,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _dailyGoalKcal = dietTarget.calories;
       }
       _dietWeightGoal = dietTarget.weightGoal;
+
     }
 
     if (mounted) setState(() {});

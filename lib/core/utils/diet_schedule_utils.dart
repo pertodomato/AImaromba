@@ -1,4 +1,5 @@
 import 'package:fitapp/core/constants/diet_weight_goal.dart';
+
 import 'package:fitapp/core/models/diet_block.dart';
 import 'package:fitapp/core/models/diet_day.dart';
 import 'package:fitapp/core/models/diet_day_plan.dart';
@@ -16,6 +17,7 @@ class DietScheduleTarget {
     this.dayName,
     this.blockName,
     this.weightGoal,
+
   });
 
   final double calories;
@@ -28,6 +30,8 @@ class DietScheduleTarget {
 
   bool get hasCalorieGoal => calories > 0;
   String? get weightGoalLabel => DietWeightGoal.label(weightGoal);
+
+  bool get hasCalorieGoal => calories > 0;
 }
 
 class DietScheduleUtils {
@@ -180,4 +184,5 @@ class DietScheduleUtils {
 
   static double calorieBiasForGoal(String? goal) =>
       DietWeightGoal.calorieBias(goal);
+
 }

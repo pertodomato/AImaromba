@@ -13,6 +13,7 @@ REGRAS:
 - Para cada block novo, informe "weight_goal" com um dos valores: "lose" (perder peso),
   "maintain" (manter) ou "gain" (ganhar). Escolha com base no objetivo do usuário
   e na etapa do ciclo (ex.: bulking = "gain", cutting = "lose").
+
 - Saída estrita em JSON. Sem texto fora do JSON.
 
 FORMATO:
@@ -65,6 +66,9 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
     "repetition_schema": "Quinzenal",
     "target_duration_days": 14,
     "end_date": null,
+
+    "target_duration_days": 84,
+    "end_date": "2024-11-15",
     "block_sequence_placeholders": ["dez_deficit_quatro_manutencao"]
   },
   "blocks_to_create": [
