@@ -76,7 +76,13 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
     final hive = context.read<HiveService>();
     final mealsBox = hive.getBox<Meal>('meals');
 
-    Meal? meal = mealsBox.values.where((m) => m.id == barcode).cast<Meal?>().firstOrNull;
+    Meal? meal;
+    try {
+      meal = mealsBox.values.firstWhere((m) => m.id == barcode);
+    } catch (_) {
+      meal = null;
+    }
+
     meal ??= await FoodApiService().fetchFoodByBarcode(barcode);
 
     if (meal == null) {
@@ -84,9 +90,11 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alimento não encontrado.')));
       return;
     }
-    if (!mealsBox.values.any((m) => m.id == meal!.id)) await mealsBox.add(meal);
+    final mealToStore = meal!;
+    final alreadyStored = mealsBox.values.any((m) => m.id == mealToStore.id);
+    if (!alreadyStored) await mealsBox.add(mealToStore);
 
-    await _collectAndSave(meal);
+    await _collectAndSave(mealToStore);
   }
 
   Future<void> _addByTaco() async {
