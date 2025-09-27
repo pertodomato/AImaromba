@@ -16,9 +16,15 @@ class WorkoutRoutineSchedule extends HiveObject {
   @HiveField(2)
   String repetitionSchema; // "Semanal" | "Quinzenal" | "Mensal"
 
+  /// Data em que a rotina deve ser encerrada. Quando nulo, a UI assume
+  /// um horizonte padrão (ex.: 6 meses a partir do início).
+  @HiveField(3)
+  DateTime? endDate;
+
   WorkoutRoutineSchedule({
     required this.routineSlug,
     required this.blockSequence,
     required this.repetitionSchema,
+    this.endDate,
   });
 }

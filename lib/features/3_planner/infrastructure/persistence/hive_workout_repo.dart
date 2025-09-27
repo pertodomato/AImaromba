@@ -156,6 +156,7 @@ class HiveWorkoutRepo {
     required String routineSlug,
     required String repetitionSchema,
     required List<WorkoutBlock> sequence,
+    DateTime? endDate,
   }) {
     final canonical = toSlug(routineSlug);
     final existing =
@@ -165,6 +166,7 @@ class HiveWorkoutRepo {
       final sch = existing.first;
       sch.blockSequence = sequence.map((b) => b.slug).toList();
       sch.repetitionSchema = repetitionSchema;
+      sch.endDate = endDate ?? sch.endDate;
       sch.save();
       // ignore: avoid_print
       print('.. updated WORKOUT SCHEDULE: $canonical -> ${sch.blockSequence}');
@@ -175,6 +177,7 @@ class HiveWorkoutRepo {
       routineSlug: canonical,
       blockSequence: sequence.map((b) => b.slug).toList(),
       repetitionSchema: repetitionSchema,
+      endDate: endDate,
     );
 
     routineScheduleBox.put(canonical, sch);
