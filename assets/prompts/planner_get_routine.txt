@@ -11,6 +11,9 @@ REGRAS:
 - Campos obrigatórios. Sem texto fora do JSON.
 - Schemas e nomes estáveis em snake_case.
 - repetition_schema: "Semanal" | "Quinzenal" | "Mensal".
+- Se o usuário mencionar duração total ou datas finais (ex.: "80 dias de bulking + 20 dias de cutting"), preencha
+  "target_duration_days" com o total planejado e/ou "end_date" em formato ISO (YYYY-MM-DD).
+- Caso não haja indicação explícita, deixe "target_duration_days" e "end_date" como null.
 
 FORMATO:
 {
@@ -18,6 +21,8 @@ FORMATO:
     "name": "string",
     "description": "string",
     "repetition_schema": "Semanal|Quinzenal|Mensal",
+    "target_duration_days": number|null,
+    "end_date": "YYYY-MM-DD"|null,
     "block_sequence_placeholders": ["placeholder_or_rest_block", "..."]
   },
   "blocks_to_create": [

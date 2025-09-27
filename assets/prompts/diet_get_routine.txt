@@ -8,6 +8,11 @@ ENTRADAS:
 REGRAS:
 - Reutilize blocks existentes quando possível.
 - "repetition_schema": "Semanal" | "Quinzenal" | "Mensal".
+- Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
+  com o total planejado e/ou "end_date" (YYYY-MM-DD). Caso contrário, deixe como null.
+- Para cada block novo, informe "weight_goal" com um dos valores: "lose" (perder peso),
+  "maintain" (manter) ou "gain" (ganhar). Escolha com base no objetivo do usuário
+  e na etapa do ciclo (ex.: bulking = "gain", cutting = "lose").
 - Saída estrita em JSON. Sem texto fora do JSON.
 
 FORMATO:
@@ -16,10 +21,17 @@ FORMATO:
     "name": "string",
     "description": "string",
     "repetition_schema": "Semanal|Quinzenal|Mensal",
+    "target_duration_days": number|null,
+    "end_date": "YYYY-MM-DD"|null,
     "block_sequence_placeholders": ["placeholder_1","placeholder_2"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "string", "name": "string", "description": "string" }
+    {
+      "placeholder_id": "string",
+      "name": "string",
+      "description": "string",
+      "weight_goal": "lose|maintain|gain"
+    }
   ],
   "reuse_blocks_by_name": ["Block já existente 1"]
 }
@@ -33,7 +45,12 @@ EXEMPLO 1 (semana normal + fds livre):
     "block_sequence_placeholders": ["semana_com_fds_livre"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "semana_com_fds_livre", "name": "Semana com Fim de Semana Livre", "description": "Seg–Sex regrado; Sáb–Dom com 1 refeição livre/dia." }
+    {
+      "placeholder_id": "semana_com_fds_livre",
+      "name": "Semana com Fim de Semana Livre",
+      "description": "Seg–Sex regrado; Sáb–Dom com 1 refeição livre/dia.",
+      "weight_goal": "maintain"
+    }
   ],
   "reuse_blocks_by_name": []
 }
@@ -47,7 +64,12 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
     "block_sequence_placeholders": ["dez_deficit_quatro_manutencao"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "dez_deficit_quatro_manutencao", "name": "10/4", "description": "10 dias de déficit seguidos de 4 dias de manutenção." }
+    {
+      "placeholder_id": "dez_deficit_quatro_manutencao",
+      "name": "10/4",
+      "description": "10 dias de déficit seguidos de 4 dias de manutenção.",
+      "weight_goal": "lose"
+    }
   ],
   "reuse_blocks_by_name": []
 }
