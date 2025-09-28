@@ -33,7 +33,6 @@ class _HomeScreenState extends State<HomeScreen> {
   double _dailyGoalKcal = 2000;
   String? _dietGoalLabel;
   String? _dietWeightGoal;
-
   bool _planEnded = false;
 
   static const int _defaultDurationDays = 180;
@@ -142,7 +141,6 @@ class _HomeScreenState extends State<HomeScreen> {
       final label = dietTarget.displayLabel;
       if (label != null) {
         _dietGoalLabel = label;
-
       }
       if (dietTarget.hasCalorieGoal) {
         _dailyGoalKcal = dietTarget.calories;

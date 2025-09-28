@@ -45,7 +45,6 @@ class DietScheduleTarget {
   }
 
   String? get displayLabel => labelParts.isEmpty ? null : labelParts.join(' • ');
-
 }
 
 class DietScheduleUtils {
@@ -187,7 +186,6 @@ class DietScheduleUtils {
         dayName: dietDay.name,
         blockName: activeBlock?.name,
         weightGoal: weightGoal,
-
       );
 
       if (selectedStart == null || start.isAfter(selectedStart)) {
@@ -201,5 +199,4 @@ class DietScheduleUtils {
 
   static double calorieBiasForGoal(String? goal) =>
       DietWeightGoal.calorieBias(goal);
-
 }

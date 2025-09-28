@@ -9,6 +9,12 @@ CONDIÇÕES:
 - Perguntas curtas e específicas. Evite jargão.
 - Saída ESTRITAMENTE JSON. Sem texto fora do JSON.
 
+LEMBRETE DO QUE SERÁ GERADO APÓS AS RESPOSTAS:
+- Rotina de treino com sequência de blocks (cada block tem 1–15 dias) e foco muscular por fase.
+- Rotina de dieta com blocks associados a metas de peso (lose/maintain/gain) e calendário correspondente.
+- Estruturas detalhadas de blocks, dias, sessões e refeições.
+Faça perguntas que alimentem diretamente essas decisões. Se não ajuda a definir blocos, sessões, exercícios ou refeições, descarte.
+
 ENTRADAS:
 - Perfil do Usuário: {user_profile}
 - Objetivo Principal: "{user_goal}"
@@ -53,5 +59,17 @@ EXEMPLO 3 (ciclo com fases distintas – bulking e cutting):
     { "id": "q4", "text": "Quais fontes principais de proteína, carboidrato e gordura prefere usar em bulking e em cutting?" },
     { "id": "q5", "text": "Deseja incluir refeições livres ou refeeds programados? Se sim, com que frequência?" },
     { "id": "q6", "text": "Consegue monitorar peso corporal e medidas semanalmente para ajustar calorias?" }
+  ]
+}
+
+EXEMPLO 4 (solicitou 70 dias de bulking + 20 de cutting, treino em casa):
+{
+  "questions": [
+    { "id": "q1", "text": "Confirma quantos dias/semana e quantos minutos por sessão consegue treinar em casa durante o bulking e durante o cutting?" },
+    { "id": "q2", "text": "Quais equipamentos caseiros terá disponível em cada fase (halteres, elásticos, barra fixa, etc.)?" },
+    { "id": "q3", "text": "Quais grupos musculares precisam de maior ênfase e qual frequência mínima aceita para os demais grupos?" },
+    { "id": "q4", "text": "Existe alguma estratégia alimentar obrigatória em cada fase (ex.: refeição livre semanal no bulking, carbo reduzido no cutting)?" },
+    { "id": "q5", "text": "Há alimentos que deseja excluir totalmente ou que precisam aparecer com frequência nas refeições?" },
+    { "id": "q6", "text": "Precisa adaptar horários de refeições ou treinos a compromissos fixos (turnos de trabalho, viagens)?" }
   ]
 }
