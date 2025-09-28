@@ -12,6 +12,7 @@ import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/meal_ai_service.dart';
 import 'package:fitapp/features/common/scan_barcode_screen.dart';
 import 'package:fitapp/features/common/photo_capture_ai_screen.dart';
+import 'package:fitapp/core/utils/diet_schedule_utils.dart';
 
 class NutritionHubScreen extends StatefulWidget {
   const NutritionHubScreen({super.key});
@@ -22,6 +23,9 @@ class NutritionHubScreen extends StatefulWidget {
 class _NutritionHubScreenState extends State<NutritionHubScreen> {
   late List<MealEntry> _todays;
   double _kcal = 0;
+  double _dailyGoalKcal = 0;
+  String? _dietGoalLabel;
+  String? _dietWeightGoal;
   @override
   void initState() {
     super.initState();
@@ -36,6 +40,23 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
     _todays = entries.where((e) =>
       e.dateTime.year == now.year && e.dateTime.month == now.month && e.dateTime.day == now.day).toList();
     _kcal = _todays.fold(0.0, (s, e) => s + e.calories);
+
+    final profile = hive.getUserProfile();
+    _dailyGoalKcal = (profile.dailyKcalGoal ?? 2000).toDouble();
+    _dietGoalLabel = null;
+    _dietWeightGoal = null;
+
+    final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+    if (dietTarget != null) {
+      if (dietTarget.hasCalorieGoal) {
+        _dailyGoalKcal = dietTarget.calories;
+      }
+      final label = dietTarget.displayLabel;
+      if (label != null) {
+        _dietGoalLabel = label;
+      }
+      _dietWeightGoal = dietTarget.weightGoal;
+    }
     setState(() {});
   }
 
@@ -45,7 +66,13 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
     final hive = context.read<HiveService>();
     final mealsBox = hive.getBox<Meal>('meals');
 
-    Meal? meal = mealsBox.values.where((m) => m.id == barcode).cast<Meal?>().firstOrNull;
+    Meal? meal;
+    try {
+      meal = mealsBox.values.firstWhere((m) => m.id == barcode);
+    } catch (_) {
+      meal = null;
+    }
+
     meal ??= await FoodApiService().fetchFoodByBarcode(barcode);
 
     if (meal == null) {
@@ -53,9 +80,11 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Alimento não encontrado.')));
       return;
     }
-    if (!mealsBox.values.any((m) => m.id == meal!.id)) await mealsBox.add(meal);
+    final mealToStore = meal!;
+    final alreadyStored = mealsBox.values.any((m) => m.id == mealToStore.id);
+    if (!alreadyStored) await mealsBox.add(mealToStore);
 
-    await _collectAndSave(meal);
+    await _collectAndSave(mealToStore);
   }
 
   Future<void> _addByTaco() async {
@@ -129,12 +158,16 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dados inválidos ou IA não configurada.')));
                 return;
               }
-              final meal = await MealAIService(llm).fromText(desc);
+              final hive = context.read<HiveService>();
+              final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+              final bias = DietScheduleUtils.calorieBiasForGoal(
+                dietTarget?.weightGoal ?? _dietWeightGoal,
+              );
+              final meal = await MealAIService(llm).fromText(desc, calorieBias: bias);
               if (meal == null) {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não retornou alimento.')));
                 return;
               }
-              final hive = context.read<HiveService>();
               await hive.getBox<Meal>('meals').add(meal);
               await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
                 id: const Uuid().v4(),
@@ -234,6 +267,8 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat.compact();
+    final goal = _dailyGoalKcal > 0 ? _dailyGoalKcal : null;
+    final progress = goal != null && goal > 0 ? (_kcal / goal).clamp(0.0, 1.0) : null;
     return Scaffold(
       appBar: AppBar(title: const Text('Nutrição')),
       body: ListView(
@@ -243,7 +278,24 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
             child: ListTile(
               leading: const Icon(Icons.local_fire_department),
               title: Text('Consumido hoje: ${_kcal.toStringAsFixed(0)} kcal'),
-              subtitle: Text('${_todays.length} itens'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${_todays.length} itens'),
+                  if (goal != null) ...[
+                    const SizedBox(height: 4),
+                    Text('Meta do plano: ${goal.toStringAsFixed(0)} kcal'),
+                    if (_dietGoalLabel != null)
+                      Text(
+                        _dietGoalLabel!,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    const SizedBox(height: 6),
+                    LinearProgressIndicator(value: progress),
+                  ],
+                ],
+              ),
+              isThreeLine: goal != null,
             ),
           ),
           const SizedBox(height: 12),

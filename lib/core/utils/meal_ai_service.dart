@@ -14,7 +14,10 @@ class MealAIService {
 
   MealAIService(this.llm);
 
-  Future<core.Meal?> fromText(String description) async {
+  Future<core.Meal?> fromText(
+    String description, {
+    double calorieBias = 1.0,
+  }) async {
     final template =
         await rootBundle.loadString('assets/prompts/meal_from_text.txt');
     final prompt = template.replaceAll('{meal_text}', description);
@@ -22,7 +25,7 @@ class MealAIService {
     // ignore: avoid_print
     print('---- RESPOSTA CRUA DA IA (TEXTO) ----\n$raw\n---------------------------');
     final json = safeDecodeMap(raw);
-    return _mealFromJson(json);
+    return _mealFromJson(json, calorieBias: calorieBias);
   }
 
   /// NOVO MÉTODO CORRIGIDO
@@ -31,6 +34,7 @@ class MealAIService {
       fromImageAutoWithRawResponse(
     List<String> imagesBase64, {
     String? extraText,
+    double calorieBias = 1.0,
   }) async {
     final template =
         await rootBundle.loadString('assets/prompts/meal_from_image.txt');
@@ -41,7 +45,7 @@ class MealAIService {
     // ignore: avoid_print
     print('---- RESPOSTA CRUA DA IA (IMAGEM) ----\n$raw\n---------------------------');
 
-    final result = _parseMealAndGrams(raw);
+    final result = _parseMealAndGrams(raw, calorieBias: calorieBias);
     return (result: result, rawResponse: raw);
   }
 
@@ -49,15 +53,23 @@ class MealAIService {
   Future<({core.Meal meal, double grams})?> fromImageAuto(
     List<String> imagesBase64, {
     String? extraText,
+    double calorieBias = 1.0,
   }) async {
     final response =
-        await fromImageAutoWithRawResponse(imagesBase64, extraText: extraText);
+        await fromImageAutoWithRawResponse(
+      imagesBase64,
+      extraText: extraText,
+      calorieBias: calorieBias,
+    );
     return response?.result;
   }
 
   // -------------------- Parse helpers --------------------
 
-  ({core.Meal meal, double grams})? _parseMealAndGrams(String rawResponse) {
+  ({core.Meal meal, double grams})? _parseMealAndGrams(
+    String rawResponse, {
+    double calorieBias = 1.0,
+  }) {
     Map<String, dynamic> json;
     try {
       json = safeDecodeMap(rawResponse);
@@ -99,20 +111,23 @@ class MealAIService {
         _tryParseNum(json['estimated_weight_g']) ??
         300.0;
 
-    final meal = _mealFromJson(json);
+    final meal = _mealFromJson(json, calorieBias: calorieBias);
     if (meal == null) return null;
 
     return (meal: meal, grams: grams);
   }
 
-  core.Meal? _mealFromJson(Map<String, dynamic> j) {
+  core.Meal? _mealFromJson(
+    Map<String, dynamic> j, {
+    double calorieBias = 1.0,
+  }) {
     final m = j['meal'];
     if (m == null) {
       // ignore: avoid_print
       print('FALHA NO SCHEMA: Chave "meal" não encontrada no JSON.');
       return null;
     }
-    return core.Meal(
+    final meal = core.Meal(
       id: (m['id'] ?? _uuid.v4()).toString(),
       name: (m['name'] ?? 'Refeição').toString(),
       description: (m['description'] ?? '').toString(),
@@ -121,12 +136,26 @@ class MealAIService {
       carbsPer100g: _num(m['carbs_per_100g']),
       fatPer100g: _num(m['fat_per_100g']),
     );
+    if (calorieBias != 1.0) {
+      meal
+        ..caloriesPer100g = _applyBias(meal.caloriesPer100g, calorieBias)
+        ..proteinPer100g = _applyBias(meal.proteinPer100g, calorieBias)
+        ..carbsPer100g = _applyBias(meal.carbsPer100g, calorieBias)
+        ..fatPer100g = _applyBias(meal.fatPer100g, calorieBias);
+    }
+    return meal;
   }
 
   double _num(dynamic v) {
     if (v is num) return v.toDouble();
     final p = double.tryParse('$v');
     return p ?? 0.0;
+  }
+
+  double _applyBias(double value, double bias) {
+    final scaled = value * bias;
+    if (scaled.isNaN || scaled.isInfinite) return value;
+    return scaled;
   }
 
   double? _tryParseNum(dynamic v) {

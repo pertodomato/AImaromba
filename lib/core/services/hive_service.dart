@@ -51,6 +51,7 @@ class HiveService {
   static const _dietDayPlansBoxName = 'diet_day_plans';
   static const _dietDayMealPlanItemsBoxName = 'diet_day_meal_plan_items';
   static const _dietRoutineSchedulesBoxName = 'diet_routine_schedules';
+  static const _dietBlockGoalsBoxName = 'diet_block_goals';
 
   // ===== Bootstrap =====
   Future<void> init() async {
@@ -58,7 +59,7 @@ class HiveService {
       final dir = await pp.getApplicationDocumentsDirectory();
       Hive.init(dir.path);
     }
-    _registerAdapters();          // <<<<<<<<<< IMPORTANTE
+    _registerAdapters();          // IMPORTANTE: registrar adapters antes de abrir as caixas
     await _openTypedBoxesOnce();
   }
 
@@ -164,6 +165,9 @@ class HiveService {
     if (!Hive.isBoxOpen(_dietRoutineSchedulesBoxName)) {
       await Hive.openBox<DietRoutineSchedule>(_dietRoutineSchedulesBoxName);
     }
+    if (!Hive.isBoxOpen(_dietBlockGoalsBoxName)) {
+      await Hive.openBox<String>(_dietBlockGoalsBoxName);
+    }
   }
 
   // ===== Getters tipados =====
@@ -192,6 +196,7 @@ class HiveService {
       Hive.box<DietDayMealPlanItem>(_dietDayMealPlanItemsBoxName);
   Box<DietRoutineSchedule> get dietRoutineSchedulesBox =>
       Hive.box<DietRoutineSchedule>(_dietRoutineSchedulesBoxName);
+  Box<String> get dietBlockGoalsBox => Hive.box<String>(_dietBlockGoalsBoxName);
 
   /// Compat com telas antigas — retorna **Box<T>**
   Box<T> getBox<T>(String name) {
@@ -237,6 +242,8 @@ class HiveService {
         return dietDayMealPlanItemsBox as Box<T>;
       case _dietRoutineSchedulesBoxName:
         return dietRoutineSchedulesBox as Box<T>;
+      case _dietBlockGoalsBoxName:
+        return dietBlockGoalsBox as Box<T>;
 
       default:
         throw ArgumentError('Box desconhecida: $name');
