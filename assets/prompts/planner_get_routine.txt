@@ -12,7 +12,10 @@ REGRAS:
 - Reutilize blocks existentes quando compatíveis; crie placeholders quando necessário.
 - Respeite fases distintas descritas pelo usuário (ex.: bulking → cutting, base → pico). Cada fase deve ter placeholders próprios
   e aparecer na sequência na ordem cronológica desejada, repetindo cada placeholder quantas vezes forem necessárias para atingir
-a duração mencionada.
+  a duração mencionada.
+- Se houver mais de um objetivo/fase, crie **no mínimo um placeholder exclusivo para cada fase**; nunca concentre fases distintas
+  em um único block. A sequência deve deixar explícito quando uma fase começa e termina.
+
 - Monte "block_sequence_placeholders" apenas para o período planejado (sem loops infinitos). Em ciclos finitos, repita cada placeholder
   somente até completar a contagem de dias solicitada.
 - Se o usuário declarar músculos de foco, garanta blocks que cubram todo o corpo ao longo da semana/quinzena, mas com maior frequência ou volume para os músculos priorizados (ex.: foco em costas/braços → 2 sessões para eles, 1 para peito/pernas).
@@ -22,7 +25,6 @@ a duração mencionada.
 - Se o usuário mencionar duração total ou datas finais (ex.: "80 dias de bulking + 20 dias de cutting"), preencha
   "target_duration_days" com o total planejado e/ou "end_date" em formato ISO (YYYY-MM-DD).
 - Caso não haja indicação explícita, deixe "target_duration_days" e "end_date" como null.
-
 
 FORMATO:
 {
@@ -109,6 +111,53 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
       "placeholder_id": "cut_microciclo_final_6d",
       "name": "Microciclo Cutting Final",
       "description": "Bloco de 6 dias para finalizar o déficit: foco em circuitos, passos extras e descarte de retenção antes do encerramento."
+    }
+  ],
+  "reuse_blocks_by_name": []
+}
+
+EXEMPLO 4 (Base → Pico para prova):
+{
+  "routine": {
+    "name": "Base + Pico para 16 semanas",
+    "description": "Oito semanas de base geral, seis semanas de intensificação e duas semanas de taper para a prova alvo.",
+    "repetition_schema": "Semanal",
+    "target_duration_days": 112,
+    "end_date": null,
+    "block_sequence_placeholders": [
+      "base_semana",
+      "base_semana",
+      "base_semana",
+      "base_semana",
+      "base_semana",
+      "base_semana",
+      "base_semana",
+      "base_semana",
+      "intensificacao_semana",
+      "intensificacao_semana",
+      "intensificacao_semana",
+      "intensificacao_semana",
+      "intensificacao_semana",
+      "intensificacao_semana",
+      "taper_semana",
+      "taper_semana"
+    ]
+  },
+  "blocks_to_create": [
+    {
+      "placeholder_id": "base_semana",
+      "name": "Base Semanal",
+      "description": "Semana de construção geral cobrindo corpo inteiro, com foco em técnica sólida e volume moderado."
+    },
+    {
+      "placeholder_id": "intensificacao_semana",
+      "name": "Intensificação Semanal",
+      "description": "Semana com ênfase em intensidade/provas específicas, mantendo sessões de força essenciais."
+    },
+    {
+      "placeholder_id": "taper_semana",
+      "name": "Taper Semanal",
+      "description": "Semana de polimento com volume reduzido e foco em velocidade, mobilidade e recuperação ativa."
 
     }
   ],

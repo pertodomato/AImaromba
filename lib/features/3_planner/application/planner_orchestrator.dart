@@ -421,7 +421,6 @@ class PlannerOrchestrator {
 
     final Map<String, DietBlock> blocksCreated = {};
     final Map<String, String?> blockGoals = {};
-
     final blocks = (routineJson['blocks_to_create'] as List?) ?? const [];
     int doneBlocks = 0;
 

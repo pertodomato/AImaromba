@@ -179,7 +179,6 @@ class DietScheduleUtils {
               hive.dietBlockGoalsBox.get(toSlug(activeBlock.name))
           : null;
 
-
       final candidate = DietScheduleTarget(
         calories: calories,
         protein: protein,
