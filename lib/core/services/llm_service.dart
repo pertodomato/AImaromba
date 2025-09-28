@@ -1,5 +1,6 @@
 // lib/core/services/llm_service.dart
 // Abstração de LLM com saída JSON e suporte a texto+imagem.
+// Ajuste: sem timeouts explícitos; fallback automático para gpt-5-mini.
 
 import 'dart:convert';
 import 'dart:typed_data';
@@ -14,7 +15,7 @@ abstract class LLMProvider {
   Future<String> getJson(String prompt, {List<Uint8List>? images});
 }
 
-/// Gemini (inalterado)
+/// Gemini (inalterado, removidos .timeout)
 class GeminiProvider implements LLMProvider {
   final String apiKey;
   final String textModel;
@@ -39,14 +40,10 @@ class GeminiProvider implements LLMProvider {
         for (final bytes in images) {
           parts.add(gg.DataPart('image/jpeg', bytes));
         }
-        final resp = await _vision
-            .generateContent([sys, gg.Content.multi(parts)])
-            .timeout(const Duration(seconds: 45));
+        final resp = await _vision.generateContent([sys, gg.Content.multi(parts)]);
         return resp.text ?? '{}';
       } else {
-        final resp = await _text
-            .generateContent([sys, gg.Content.text(prompt)])
-            .timeout(const Duration(seconds: 45));
+        final resp = await _text.generateContent([sys, gg.Content.text(prompt)]);
         return resp.text ?? '{}';
       }
     } catch (e) {
@@ -118,7 +115,7 @@ class GPTProvider implements LLMProvider {
     }
 
     try {
-      final resp = await _call(model).timeout(const Duration(seconds: 45));
+      final resp = await _call(model);
       if (resp.statusCode == 200 && resp.data != null) {
         return resp.data['choices'][0]['message']['content'] ?? '{}';
       }
@@ -136,7 +133,7 @@ class GPTProvider implements LLMProvider {
 
         if (isModelNotFound && model != 'gpt-5-mini') {
           try {
-            final resp = await _call('gpt-5-mini').timeout(const Duration(seconds: 45));
+            final resp = await _call('gpt-5-mini');
             if (resp.statusCode == 200 && resp.data != null) {
               return resp.data['choices'][0]['message']['content'] ?? '{}';
             }
@@ -164,7 +161,7 @@ class LLMService {
     if (profile.selectedLlm == 'gemini' && profile.geminiApiKey.isNotEmpty) {
       _provider = GeminiProvider(profile.geminiApiKey);
     } else if (profile.selectedLlm == 'gpt' && profile.gptApiKey.isNotEmpty) {
-      // Sem depender de openAiModelId; usa default com fallback.
+      // Usa default 'gpt-5-mini-high' com fallback interno para 'gpt-5-mini'
       _provider = GPTProvider(profile.gptApiKey);
     } else {
       _provider = null;
@@ -173,10 +170,11 @@ class LLMService {
 
   bool isAvailable() => _provider != null;
 
-  Future<bool> ping({Duration timeout = const Duration(seconds: 15)}) async {
+  // Sem timeout externo; deixa o provedor decidir.
+  Future<bool> ping() async {
     if (_provider == null) return false;
     try {
-      final res = await _provider!.getJson('{"ping":true}').timeout(timeout);
+      final res = await _provider!.getJson('{"ping":true}');
       return res.isNotEmpty && !res.contains('"error"');
     } catch (_) {
       return false;
@@ -196,5 +194,5 @@ class LLMService {
       throw Exception('LLM Provider não inicializado. Configure no Perfil.');
     }
     return _provider!.getJson(prompt, images: images);
-  }
+    }
 }
