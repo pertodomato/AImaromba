@@ -118,8 +118,7 @@ EXEMPLO 3 (70 dias de bulking + 20 dias de cutting):
     ]
   },
   "blocks_to_create": [
-    {
-      "placeholder_id": "bulking_superavit_semana",
+    {      "placeholder_id": "bulking_superavit_semana",
       "name": "Bulking Superávit Semana",
       "description": "Superávit de ~10% (≈+280 kcal) com 4 refeições grandes e 2 lanches, carboidratos reforçados pré/pós-treino e 1 refeição livre pequena a cada 7 dias.",
       "weight_goal": "gain"

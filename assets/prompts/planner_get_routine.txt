@@ -35,6 +35,7 @@ PASSOS OBRIGATÓRIOS:
 4. Para cada placeholder novo, forneça nome e descrição detalhando foco muscular, número de sessões/descansos e intenção da fase.
 5. Se algum block já existir com o mesmo propósito, adicione-o em "reuse_blocks_by_name" em vez de duplicar.
 
+
 FORMATO:
 {
   "routine": {
