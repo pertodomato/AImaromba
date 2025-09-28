@@ -59,7 +59,7 @@ class HiveService {
       final dir = await pp.getApplicationDocumentsDirectory();
       Hive.init(dir.path);
     }
-    _registerAdapters();          // <<<<<<<<<< IMPORTANTE
+    _registerAdapters();          // IMPORTANTE: registrar adapters antes de abrir as caixas
     await _openTypedBoxesOnce();
   }
 
