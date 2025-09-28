@@ -94,7 +94,6 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
   ],
   "reuse_blocks_by_name": []
 }
-
 EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
 {
   "diet_routine": {
@@ -121,6 +120,7 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
       "placeholder_id": "cutting_deficit_5d",
       "name": "Cutting Déficit 5d",
       "description": "Déficit de 15% (~-350 kcal) por 5 dias, proteína 2,2 g/kg, carboidratos concentrados pré/pós-treino e estratégias extras de saciedade (fibras, água).",
+
       "weight_goal": "lose"
     }
   ],

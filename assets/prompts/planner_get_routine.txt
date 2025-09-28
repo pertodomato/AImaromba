@@ -34,8 +34,9 @@ PASSOS OBRIGATÓRIOS:
 1. Identifique todas as fases ou objetivos distintos mencionados nas entradas (ex.: bulking 70 dias, cutting 20 dias, fase técnica).
 2. Para cada fase, calcule quantos blocks de 1–15 dias são necessários para cobrir exatamente a duração solicitada; use blocks finais parciais quando restarem dias extras.
 3. Defina a ordem cronológica dos blocks na lista "block_sequence_placeholders", parando quando atingir o total planejado (não repita indefinidamente).
-  4. Para cada placeholder novo, forneça nome e descrição detalhando foco muscular, número de sessões/descansos e intenção da fase.
+4. Para cada placeholder novo, forneça nome e descrição detalhando foco muscular, número de sessões/descansos e intenção da fase.
 5. Se algum block já existir com o mesmo propósito, adicione-o em "reuse_blocks_by_name" em vez de duplicar.
+
 
 FORMATO:
 {
