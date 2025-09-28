@@ -23,6 +23,7 @@ a duração mencionada.
   "target_duration_days" com o total planejado e/ou "end_date" em formato ISO (YYYY-MM-DD).
 - Caso não haja indicação explícita, deixe "target_duration_days" e "end_date" como null.
 
+
 FORMATO:
 {
   "routine": {
@@ -76,6 +77,7 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
   "routine": {
     "name": "Bulking 80d + Cutting 20d",
     "description": "Onze microciclos (~80 dias) focados em ganho seguidos de três microciclos (~20 dias) de corte para completar 100 dias.",
+
     "repetition_schema": "Semanal",
     "target_duration_days": 100,
     "end_date": "2024-12-31",
@@ -84,6 +86,7 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo_final_10d",
       "cut_microciclo", "cut_microciclo", "cut_microciclo_final_6d"
+
     ]
   },
   "blocks_to_create": [
@@ -106,6 +109,7 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
       "placeholder_id": "cut_microciclo_final_6d",
       "name": "Microciclo Cutting Final",
       "description": "Bloco de 6 dias para finalizar o déficit: foco em circuitos, passos extras e descarte de retenção antes do encerramento."
+
     }
   ],
   "reuse_blocks_by_name": []
