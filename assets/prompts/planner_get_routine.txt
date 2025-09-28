@@ -38,7 +38,7 @@ PASSOS OBRIGATÓRIOS:
 5. Se algum block já existir com o mesmo propósito, adicione-o em "reuse_blocks_by_name" em vez de duplicar.
 
 
-FORMATO:
+FORMATO PRINCIPAL (JSON ÚNICO):
 {
   "routine": {
     "name": "string",
@@ -161,4 +161,24 @@ EXEMPLO 4 (Base → Pico para prova):
     }
   ],
   "reuse_blocks_by_name": []
+}
+
+EXEMPLO 5 (Reutilizando block existente):
+{
+  "routine": {
+    "name": "Rotina com Block Pré-existente",
+    "description": "Mantém o block de força do banco e adiciona block novo de condicionamento.",
+    "repetition_schema": "Semanal",
+    "target_duration_days": null,
+    "end_date": null,
+    "block_sequence_placeholders": ["forca_base_banco", "novo_conditioning"]
+  },
+  "blocks_to_create": [
+    {
+      "placeholder_id": "novo_conditioning",
+      "name": "Conditioning Semanal",
+      "description": "Dois dias de HIIT, um dia de circuito total e duas sessões leves de mobilidade/cardio." 
+    }
+  ],
+  "reuse_blocks_by_name": ["Block Força Base"]
 }

@@ -1,5 +1,6 @@
 // lib/features/3_planner/infrastructure/llm/llm_client_impl.dart
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:fitapp/core/services/llm_service.dart';
 import 'package:fitapp/core/utils/json_safety.dart';
@@ -23,7 +24,23 @@ class LLMClientImpl {
     // ignore: avoid_print
     print('\n===== LLM PROMPT [$assetPath] =====\n$prompt\n====================================\n');
 
-    final resp = await _llm.getJson(prompt);
+    List<Uint8List>? imageBytes;
+    if (imagesBase64 != null && imagesBase64.isNotEmpty) {
+      final cleaned = imagesBase64.where((s) => s.trim().isNotEmpty);
+      final bytes = <Uint8List>[];
+      for (final base64 in cleaned) {
+        try {
+          bytes.add(base64Decode(base64));
+        } catch (_) {
+          // Ignore imagens inválidas; o LLM receberá apenas as válidas.
+        }
+      }
+      if (bytes.isNotEmpty) {
+        imageBytes = bytes;
+      }
+    }
+
+    final resp = await _llm.getJson(prompt, images: imageBytes);
 
     // LOG: resposta crua
     // ignore: avoid_print

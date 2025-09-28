@@ -12,7 +12,7 @@ REGRAS:
   maior frequência/volume para os músculos de foco (ex.: costas/braços 2x, peito/pernas 1x).
 - Saída estrita em JSON, sem texto extra.
 
-FORMATO:
+FORMATO PRINCIPAL (JSON ÚNICO):
 {
   "block_id": "placeholder_id",
   "days_to_create": [
@@ -80,4 +80,13 @@ EXEMPLO 4 (Block Quinzenal focado em Costas e Braços mantendo corpo todo):
     { "placeholder_id": "descanso3", "name": "Descanso", "description": "Sono e alongamentos leves.", "is_rest": true }
   ],
   "reuse_days_by_name": []
+}
+
+EXEMPLO 5 (Reutilizando dia existente):
+{
+  "block_id": "upper_lower_focus_back_arms",
+  "days_to_create": [
+    { "placeholder_id": "upper_back_arms_b", "name": "Upper Costas/Braços B", "description": "Costas largura + braços em variações.", "is_rest": false }
+  ],
+  "reuse_days_by_name": ["Upper Costas/Braços A"]
 }

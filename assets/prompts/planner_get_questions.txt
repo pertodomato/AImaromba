@@ -19,7 +19,7 @@ ENTRADAS:
 - Perfil do Usuário: {user_profile}
 - Objetivo Principal: "{user_goal}"
 
-FORMATO:
+FORMATO PRINCIPAL (JSON ÚNICO):
 {
   "questions": [
     { "id": "q1", "text": "..." },

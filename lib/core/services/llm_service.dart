@@ -56,10 +56,16 @@ class GeminiProvider implements LLMProvider {
 class GPTProvider implements LLMProvider {
   final String apiKey;
   final String model; // alvo preferido
+  final String reasoningEffort;
   final Dio _dio = Dio();
 
-  GPTProvider(this.apiKey, {String? model})
-      : model = (model?.trim().isNotEmpty ?? false) ? model! : 'gpt-5-mini-high';
+  GPTProvider(
+    this.apiKey, {
+    String? model,
+    String? reasoningEffort,
+  })  : model = (model?.trim().isNotEmpty ?? false) ? model! : 'gpt-5-mini',
+        reasoningEffort =
+            (reasoningEffort?.trim().isNotEmpty ?? false) ? reasoningEffort! : 'medium';
 
   @override
   Future<String> getJson(String prompt, {List<Uint8List>? images}) async {
@@ -84,8 +90,13 @@ class GPTProvider implements LLMProvider {
       final payload = {
         "model": useModel,
         "messages": messages,
-        "response_format": {"type": "json_object"}
+        "response_format": {"type": "json_object"},
       };
+
+      if (reasoningEffort.isNotEmpty) {
+        payload['reasoning'] = {'effort': reasoningEffort};
+      }
+
       return _dio.post(
         endpoint,
         data: payload,
@@ -161,7 +172,7 @@ class LLMService {
     if (profile.selectedLlm == 'gemini' && profile.geminiApiKey.isNotEmpty) {
       _provider = GeminiProvider(profile.geminiApiKey);
     } else if (profile.selectedLlm == 'gpt' && profile.gptApiKey.isNotEmpty) {
-      // Usa default 'gpt-5-mini-high' com fallback interno para 'gpt-5-mini'
+      // Usa default 'gpt-5-mini' com esforço de raciocínio médio e fallback automático
       _provider = GPTProvider(profile.gptApiKey);
     } else {
       _provider = null;
@@ -194,5 +205,5 @@ class LLMService {
       throw Exception('LLM Provider não inicializado. Configure no Perfil.');
     }
     return _provider!.getJson(prompt, images: images);
-    }
+  }
 }

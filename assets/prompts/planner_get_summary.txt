@@ -24,7 +24,7 @@ REGRAS DE REDAÇÃO (PT-BR):
 - **Não** use listas com marcadores; escreva em parágrafos corridos.
 - **Não** inclua nada fora do JSON final.
 
-FORMATO DE SAÍDA (ESTRITO):
+FORMATO PRINCIPAL (JSON ÚNICO):
 {
   "workout_summary": "string",
   "nutrition_summary": "string"
