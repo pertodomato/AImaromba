@@ -21,7 +21,8 @@ a duração mencionada.
 - repetition_schema: "Semanal" | "Quinzenal" | "Mensal".
 - Se o usuário mencionar duração total ou datas finais (ex.: "80 dias de bulking + 20 dias de cutting"), preencha
   "target_duration_days" com o total planejado e/ou "end_date" em formato ISO (YYYY-MM-DD).
-- Caso não haja indicação explícita, deixe "target_duration_days" e "end_date" como 6 meses depois do começo.
+- Caso não haja indicação explícita, deixe "target_duration_days" e "end_date" como null.
+
 
 FORMATO:
 {
@@ -75,15 +76,17 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
 {
   "routine": {
     "name": "Bulking 80d + Cutting 20d",
-    "description": "Oito microciclos de ganho seguidos de quatro microciclos de corte para finalizar o ciclo de 100 dias.",
+    "description": "Onze microciclos (~80 dias) focados em ganho seguidos de três microciclos (~20 dias) de corte para completar 100 dias.",
+
     "repetition_schema": "Semanal",
     "target_duration_days": 100,
     "end_date": "2024-12-31",
     "block_sequence_placeholders": [
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
-      "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
-      "cut_microciclo", "cut_microciclo", "cut_microciclo"
+      "bulk_microciclo", "bulk_microciclo", "bulk_microciclo_final_10d",
+      "cut_microciclo", "cut_microciclo", "cut_microciclo_final_6d"
+
     ]
   },
   "blocks_to_create": [
@@ -93,9 +96,20 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
       "description": "Semana de alto volume para hipertrofia (6 sessões com foco em compostos + acessórios pesados)."
     },
     {
+      "placeholder_id": "bulk_microciclo_final_10d",
+      "name": "Microciclo Bulking Final",
+      "description": "Bloco de 10 dias para consolidar ganhos com deload leve nos 3 dias extras enquanto mantém superávit calórico moderado."
+    },
+    {
       "placeholder_id": "cut_microciclo",
       "name": "Microciclo Cutting",
       "description": "Semana com volume moderado, manutenção de força e condicionamento metabólico leve."
+    },
+    {
+      "placeholder_id": "cut_microciclo_final_6d",
+      "name": "Microciclo Cutting Final",
+      "description": "Bloco de 6 dias para finalizar o déficit: foco em circuitos, passos extras e descarte de retenção antes do encerramento."
+
     }
   ],
   "reuse_blocks_by_name": []

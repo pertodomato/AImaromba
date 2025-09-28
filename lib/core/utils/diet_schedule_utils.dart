@@ -46,8 +46,6 @@ class DietScheduleTarget {
 
   String? get displayLabel => labelParts.isEmpty ? null : labelParts.join(' • ');
 
-  bool get hasCalorieGoal => calories > 0;
-
 }
 
 class DietScheduleUtils {

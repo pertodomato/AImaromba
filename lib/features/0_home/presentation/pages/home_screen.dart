@@ -143,7 +143,6 @@ class _HomeScreenState extends State<HomeScreen> {
       if (label != null) {
         _dietGoalLabel = label;
 
-
       }
       if (dietTarget.hasCalorieGoal) {
         _dailyGoalKcal = dietTarget.calories;

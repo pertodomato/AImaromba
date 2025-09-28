@@ -420,8 +420,7 @@ class PlannerOrchestrator {
     final Map<String, Meal> mealBySlug = {};
 
     final Map<String, DietBlock> blocksCreated = {};
-
-    final Map<String, String> blockGoals = {};
+    final Map<String, String?> blockGoals = {};
 
     final blocks = (routineJson['blocks_to_create'] as List?) ?? const [];
     int doneBlocks = 0;
@@ -621,7 +620,6 @@ class PlannerOrchestrator {
       if (persistedGoal != null) {
         blockGoals[ph] = persistedGoal;
       }
-
       blocksCreated[ph] = block;
       doneBlocks++;
     }
