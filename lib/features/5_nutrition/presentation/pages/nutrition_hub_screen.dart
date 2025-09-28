@@ -56,6 +56,7 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
         _dietGoalLabel = label;
       }
       _dietWeightGoal = dietTarget.weightGoal;
+
     }
     setState(() {});
   }
