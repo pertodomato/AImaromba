@@ -11,7 +11,7 @@ REGRAS:
 - "relevant_metrics" deve ser subconjunto de: ["Peso","Repetições","Distância","Tempo","Séries","DescansoSeg"].
 - Textos curtos, objetivos, em PT-BR.
 
-FORMATO:
+FORMATO PRINCIPAL (JSON ÚNICO):
 {
   "name": "string",
   "description": "string",
@@ -24,8 +24,8 @@ EXEMPLO 1 (força):
 {
   "name": "Agachamento Livre",
   "description": "Agachar abaixo dos 90°, tronco estável.",
-  "primary_muscles": ["quadríceps"],
-  "secondary_muscles": ["glúteos","lombar"],
+  "primary_muscles": ["quadriceps"],
+  "secondary_muscles": ["glutes","lower_back"],
   "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
 }
 
@@ -33,7 +33,7 @@ EXEMPLO 2 (cardio):
 {
   "name": "Corrida em Esteira",
   "description": "Ritmo contínuo, postura ereta.",
-  "primary_muscles": ["quadríceps"],
-  "secondary_muscles": ["posterior_coxa","glúteos"],
+  "primary_muscles": ["quadriceps"],
+  "secondary_muscles": ["hamstrings","glutes"],
   "relevant_metrics": ["Tempo","Distância"]
 }

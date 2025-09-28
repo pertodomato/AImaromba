@@ -19,7 +19,7 @@ REGRAS:
 - relevant_metrics deve ser subconjunto de: ["Peso","Repetições","Distância","Tempo","Séries","DescansoSeg"].
 - Textos curtos, objetivos, em PT-BR.
 
-FORMATO:
+FORMATO PRINCIPAL (JSON ÚNICO):
 {
   "day_id": "string",
   "sessions_to_create": [
@@ -201,8 +201,8 @@ EXEMPLO 3 (Day Cutting Condicionamento)
         {
           "name": "Prancha com Alcance",
           "description": "3x40 s para core anti-rotação.",
-          "primary_muscles": ["core"],
-          "secondary_muscles": ["shoulders"],
+          "primary_muscles": ["abs"],
+          "secondary_muscles": ["obliques","lower_back"],
           "relevant_metrics": ["Tempo","Séries"]
         }
       ],
@@ -212,7 +212,29 @@ EXEMPLO 3 (Day Cutting Condicionamento)
   "reuse_sessions_by_name": []
 }
 
-EXEMPLO 4 (Day Upper focado em Costas/Braços mantendo equilíbrio):
+EXEMPLO 4 (Reutilizando sessão existente):
+{
+  "day_id": "upper_back_focus",
+  "sessions_to_create": [
+    {
+      "name": "Finalização Cardio",
+      "description": "HIIT curto para elevar VO2 sem comprometer recuperação.",
+      "exercises_to_create": [
+        {
+          "name": "Bike Ergométrica Sprint",
+          "description": "8 tiros de 30 s / 30 s descanso ativo.",
+          "primary_muscles": ["quadriceps"],
+          "secondary_muscles": ["glutes","calves"],
+          "relevant_metrics": ["Tempo","Distância"]
+        }
+      ],
+      "reuse_exercises_by_name": []
+    }
+  ],
+  "reuse_sessions_by_name": ["Upper Força Principal"]
+}
+
+EXEMPLO 5 (Day Upper focado em Costas/Braços mantendo equilíbrio):
 {
   "day_id": "upper_back_arms_a",
   "sessions_to_create": [
@@ -265,7 +287,7 @@ EXEMPLO 4 (Day Upper focado em Costas/Braços mantendo equilíbrio):
         {
           "name": "Face Pull na Polia",
           "description": "3x15 para estabilizadores de ombro.",
-          "primary_muscles": ["rear_deltoid"],
+          "primary_muscles": ["posterior_deltoid"],
           "secondary_muscles": ["upper_back"],
           "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
         }
