@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:fitapp/core/constants/diet_weight_goal.dart';
 import 'package:fitapp/core/models/diet_block.dart';
 import 'package:fitapp/core/models/diet_day.dart';
 import 'package:fitapp/core/models/meal.dart';
@@ -34,6 +35,57 @@ class PlannerOrchestrator {
     required this.workoutRepo,
     required this.dietRepo,
   });
+
+  DateTime _todayDate() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+  static const int _defaultDurationDays = 180;
+
+  DateTime _resolveRoutineEndDate({
+    required DateTime startDate,
+    Map<String, dynamic>? routineMeta,
+    int? fallbackDays,
+  }) {
+    DateTime? explicitEnd;
+    final rawEnd = routineMeta?['end_date'];
+    if (rawEnd != null) {
+      final candidate = DateTime.tryParse(rawEnd.toString());
+      if (candidate != null) {
+        explicitEnd = _dateOnly(candidate);
+      }
+    }
+
+    int? durationDays;
+    final rawDuration = routineMeta?['target_duration_days'] ??
+        routineMeta?['duration_days'] ??
+        routineMeta?['total_days'];
+    if (rawDuration != null) {
+      final parsed = int.tryParse(rawDuration.toString());
+      if (parsed != null && parsed > 0) {
+        durationDays = parsed;
+      }
+    }
+
+    DateTime candidateEnd;
+    if (explicitEnd != null) {
+      candidateEnd = explicitEnd;
+    } else if (durationDays != null) {
+      candidateEnd = startDate.add(Duration(days: durationDays - 1));
+    } else if (fallbackDays != null && fallbackDays > 0) {
+      candidateEnd = startDate.add(Duration(days: fallbackDays - 1));
+    } else {
+      candidateEnd = startDate.add(const Duration(days: _defaultDurationDays - 1));
+    }
+
+    if (candidateEnd.isBefore(startDate)) {
+      return startDate;
+    }
+    return _dateOnly(candidateEnd);
+  }
 
   // ------------------ Perguntas ------------------
   Future<List<Map<String, String>>> generateQuestions({
@@ -124,6 +176,9 @@ class PlannerOrchestrator {
       description: routineDesc,
       repetitionSchema: repetitionSchema,
     );
+    final routineStart = _todayDate();
+    routine.startDate = routineStart;
+    await routine.save();
 
     // Reuso em memória (durante esta orquestração)
     final Map<String, Exercise> exerciseBySlug = {};
@@ -283,16 +338,27 @@ class PlannerOrchestrator {
     }
 
     // 3) Persist schedule da rotina
-    final List<WorkoutBlock> sequence = blockPlaceholders
+    final sequence = blockPlaceholders
         .map((ph) => blocksCreated[ph])
         .where((e) => e != null)
         .cast<WorkoutBlock>()
         .toList();
 
+    final cycleDays = sequence.fold<int>(0, (sum, block) => sum + block.daySlugs.length);
+    final routineMeta = (routineJson['routine'] as Map?)
+            ?.map((key, value) => MapEntry(key.toString(), value)) ??
+        const <String, dynamic>{};
+    final routineEnd = _resolveRoutineEndDate(
+      startDate: routineStart,
+      routineMeta: routineMeta,
+      fallbackDays: cycleDays > 0 ? cycleDays : null,
+    );
+
     final sch = workoutRepo.upsertRoutineSchedule(
       routineSlug: toSlug(routine.name),
       repetitionSchema: repetitionSchema,
       sequence: sequence, // já é List<WorkoutBlock>
+      endDate: routineEnd,
     );
     // ignore: avoid_print
     print('.. workout schedule saved: ${sch.routineSlug} -> ${sch.blockSequence}');
@@ -346,11 +412,15 @@ class PlannerOrchestrator {
       repetitionSchema: repetition,
       sequence: const [],
     );
+    final dietStart = _todayDate();
+    routine.startDate = dietStart;
+    await routine.save();
 
     // Reuso em memória durante a execução
     final Map<String, Meal> mealBySlug = {};
 
     final Map<String, DietBlock> blocksCreated = {};
+    final Map<String, String?> blockGoals = {};
     final blocks = (routineJson['blocks_to_create'] as List?) ?? const [];
     int doneBlocks = 0;
 
@@ -358,6 +428,16 @@ class PlannerOrchestrator {
       final ph = (b['placeholder_id'] ?? '').toString();
       final bName = (b['name'] ?? 'semana_tipo').toString();
       final bDesc = (b['description'] ?? '').toString();
+      final weightGoal =
+          DietWeightGoal.normalize((b['weight_goal'] ?? '').toString());
+      final existingGoal = weightGoal ??
+          dietRepo.getDietBlockGoal(toSlug(bName)) ??
+          dietRepo.getDietBlockGoal(ph);
+      if (weightGoal != null) {
+        blockGoals[ph] = weightGoal;
+      } else if (existingGoal != null) {
+        blockGoals[ph] = existingGoal;
+      }
 
       yield ProgressEvent(
         'Detalhando bloco de dieta "$bName"...',
@@ -369,7 +449,8 @@ class PlannerOrchestrator {
         dietBlockPlaceholder: {
           'placeholder_id': ph,
           'name': bName,
-          'description': bDesc
+          'description': bDesc,
+          if (weightGoal != null) 'weight_goal': weightGoal,
         },
         existingDietDays: const [],
         userFoodPrefs: foodPrefs,
@@ -419,6 +500,13 @@ class PlannerOrchestrator {
         days.add(dayEntity);
 
         // 3) Day Plan com quantidades (via LLM) + persistência (tolerância ±5%)
+        final blockGoal = blockGoals[ph];
+        final bias = DietWeightGoal.calorieBias(blockGoal);
+        final scaledTargets = <String, num>{
+          for (final entry in defaultDayTargets.entries)
+            entry.key: entry.value * bias,
+        };
+
         final planJson = await llm.getDietDayPlan(
           userProfile: userProfile,
           userGoal: userGoal,
@@ -427,6 +515,7 @@ class PlannerOrchestrator {
             'diet_day_id': (d['placeholder_id'] ?? '').toString(),
             'name': (d['name'] ?? '').toString(),
             'description': (d['description'] ?? '').toString(),
+            if (blockGoal != null) 'block_weight_goal': blockGoal,
           },
           existingMealsSummary: baseMeals
               .map((m) => {
@@ -435,9 +524,9 @@ class PlannerOrchestrator {
                     'protein_per_100g': m.proteinPer100g,
                     'carbs_per_100g': m.carbsPer100g,
                     'fat_per_100g': m.fatPer100g,
-                  })
+              })
               .toList(),
-          dayTargets: defaultDayTargets,
+          dayTargets: scaledTargets,
         );
 
         final items = <dynamic>[];
@@ -521,22 +610,42 @@ class PlannerOrchestrator {
         description: bDesc,
         daysOrdered: days,
       );
+      if (weightGoal != null) {
+        dietRepo.setDietBlockGoal(block: block, weightGoal: weightGoal);
+      }
+      final persistedGoal = blockGoals[ph] ??
+          dietRepo.getDietBlockGoal(block.slug) ??
+          weightGoal;
+      if (persistedGoal != null) {
+        blockGoals[ph] = persistedGoal;
+      }
       blocksCreated[ph] = block;
       doneBlocks++;
     }
 
     // 4) DietRoutine final (schedule por blocks)
-    final List<DietBlock> sequence = blockPHs
+    final sequence = blockPHs
         .map((ph) => blocksCreated[ph])
         .where((e) => e != null)
         .cast<DietBlock>()
         .toList();
+
+    final dietCycleDays = sequence.fold<int>(0, (sum, block) => sum + block.daySlugs.length);
+    final dietRoutineMeta = (routineJson['diet_routine'] as Map?)
+            ?.map((key, value) => MapEntry(key.toString(), value)) ??
+        const <String, dynamic>{};
+    final dietEnd = _resolveRoutineEndDate(
+      startDate: dietStart,
+      routineMeta: dietRoutineMeta,
+      fallbackDays: dietCycleDays > 0 ? dietCycleDays : null,
+    );
 
     // Persistir a ordem no DietRoutineSchedule
     dietRepo.upsertDietRoutineSchedule(
       routineSlug: toSlug(routine.name),
       repetitionSchema: repetition,
       sequence: sequence,
+      endDate: dietEnd,
     );
 
     yield const ProgressEvent('Dieta concluída!', 1.0);

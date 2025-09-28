@@ -4,8 +4,16 @@ CONDIÇÕES:
 - Português do Brasil.
 - 4 a 15 perguntas, variando conforme dados já existentes.
 - Não repita nem pergunte o que já está em {user_profile}.
+- Priorize perguntas que impactam diretamente o desenho do plano: disponibilidade semanal, duração das sessões, equipamentos, experiências prévias, limitações de movimento, preferências/aversões de exercícios, metas de composição corporal, rotina alimentar, restrições e logística das refeições.
+- Evite temas periféricos (sono genérico, suplementos aleatórios, motivação vaga) a menos que o usuário já tenha sinalizado que isso afeta treino ou dieta.
 - Perguntas curtas e específicas. Evite jargão.
 - Saída ESTRITAMENTE JSON. Sem texto fora do JSON.
+
+LEMBRETE DO QUE SERÁ GERADO APÓS AS RESPOSTAS:
+- Rotina de treino com sequência de blocks (cada block tem 1–15 dias) e foco muscular por fase.
+- Rotina de dieta com blocks associados a metas de peso (lose/maintain/gain) e calendário correspondente.
+- Estruturas detalhadas de blocks, dias, sessões e refeições.
+Faça perguntas que alimentem diretamente essas decisões. Se não ajuda a definir blocos, sessões, exercícios ou refeições, descarte.
 
 ENTRADAS:
 - Perfil do Usuário: {user_profile}
@@ -24,20 +32,44 @@ EXEMPLO 1 (iniciante com objetivo de emagrecimento):
   "questions": [
     { "id": "q1", "text": "Você treinará em casa ou academia? Se em casa, quais equipamentos possui?" },
     { "id": "q2", "text": "Quantos dias por semana pode treinar e por quanto tempo cada sessão?" },
-    { "id": "q3", "text": "Quais exercícios você não gosta ou não pode fazer?" },
-    { "id": "q4", "text": "Há alguma restrição alimentar, alergia ou preferência (ex.: vegetariano)?" },
-    { "id": "q5", "text": "Qual é sua rotina diária de passos/atividade fora do treino?" }
+    { "id": "q3", "text": "Há algum exercício ou movimento que precisa evitar por dor ou limitação?" },
+    { "id": "q4", "text": "Quais alimentos ou grupos você prefere evitar ou incluir (ex.: vegetariano, sem lactose)?" },
+    { "id": "q5", "text": "Consegue preparar/refeicionar quantas refeições por dia e em quais horários principais?" }
   ]
 }
 
-EXEMPLO 2 (intermediário buscando hipertrofia):
+EXEMPLO 2 (intermediário buscando hipertrofia em academia completa):
 {
   "questions": [
-    { "id": "q1", "text": "Quais são seus PRs em agachamento, supino e levantamento terra?" },
-    { "id": "q2", "text": "Qual divisão semanal prefere (ex.: ABC, AB, upper/lower, PPL)?" },
-    { "id": "q3", "text": "Como está o sono? Horas por noite e qualidade percebida?" },
-    { "id": "q4", "text": "Quais suplementos usa atualmente (se houver)?" },
-    { "id": "q5", "text": "Tem alguma dor ou limitação articular relevante?" },
-    { "id": "q6", "text": "Preferências alimentares principais de proteína e carboidrato?" }
+    { "id": "q1", "text": "Qual divisão semanal prefere seguir (ex.: ABC, Upper/Lower, PPL, full body)?" },
+    { "id": "q2", "text": "Quais 1RM ou cargas atuais em exercícios base (agachamento, supino, terra) para calibrar o volume?" },
+    { "id": "q3", "text": "Tem grupos musculares prioritários ou pontos fracos que quer enfatizar?" },
+    { "id": "q4", "text": "Existe alguma restrição alimentar ou macronutriente que queira controlar (ex.: baixo carbo à noite)?" },
+    { "id": "q5", "text": "Prefere seguir pesagem precisa dos alimentos ou medidas mais aproximadas?" },
+    { "id": "q6", "text": "Há refeição pré ou pós-treino que precise de sugestões específicas pela rotina?" }
+  ]
+}
+
+EXEMPLO 3 (ciclo com fases distintas – bulking e cutting):
+{
+  "questions": [
+    { "id": "q1", "text": "Como deseja dividir os dias entre as fases (ex.: quantas semanas de bulking antes do cutting)?" },
+    { "id": "q2", "text": "Qual volume de treino suporta atualmente em séries por grupamento para bulking e para cutting?" },
+    { "id": "q3", "text": "Existe alguma lista de exercícios indispensáveis ou que quer evitar em cada fase?" },
+    { "id": "q4", "text": "Quais fontes principais de proteína, carboidrato e gordura prefere usar em bulking e em cutting?" },
+    { "id": "q5", "text": "Deseja incluir refeições livres ou refeeds programados? Se sim, com que frequência?" },
+    { "id": "q6", "text": "Consegue monitorar peso corporal e medidas semanalmente para ajustar calorias?" }
+  ]
+}
+
+EXEMPLO 4 (solicitou 70 dias de bulking + 20 de cutting, treino em casa):
+{
+  "questions": [
+    { "id": "q1", "text": "Confirma quantos dias/semana e quantos minutos por sessão consegue treinar em casa durante o bulking e durante o cutting?" },
+    { "id": "q2", "text": "Quais equipamentos caseiros terá disponível em cada fase (halteres, elásticos, barra fixa, etc.)?" },
+    { "id": "q3", "text": "Quais grupos musculares precisam de maior ênfase e qual frequência mínima aceita para os demais grupos?" },
+    { "id": "q4", "text": "Existe alguma estratégia alimentar obrigatória em cada fase (ex.: refeição livre semanal no bulking, carbo reduzido no cutting)?" },
+    { "id": "q5", "text": "Há alimentos que deseja excluir totalmente ou que precisam aparecer com frequência nas refeições?" },
+    { "id": "q6", "text": "Precisa adaptar horários de refeições ou treinos a compromissos fixos (turnos de trabalho, viagens)?" }
   ]
 }

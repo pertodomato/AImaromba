@@ -8,7 +8,29 @@ ENTRADAS:
 REGRAS:
 - Reutilize blocks existentes quando possível.
 - "repetition_schema": "Semanal" | "Quinzenal" | "Mensal".
+- Respeite fases distintas mencionadas pelo usuário (ex.: bulking → cutting, manutenção → déficit). Cada fase deve ter placeholders
+  próprios e aparecer na sequência na ordem cronológica, repetindo a quantidade de vezes necessária para cumprir a duração desejada.
+- Quando identificar objetivos/etapas diferentes, gere **pelo menos um placeholder específico por fase** e distribua-os na
+  "block_sequence_placeholders" conforme o calendário. Nunca agregue bulking e cutting (ou objetivos distintos) em um único block.
+- Se a fase mantiver as mesmas regras de macros/calorias do início ao fim, reutilize o mesmo placeholder e apenas repita-o até
+  completar os dias daquela fase. Só crie variações adicionais quando houver subciclos declarados (ex.: refeeds específicos, deload alimentar).
+- Ao montar "block_sequence_placeholders", cubra apenas o período planejado (sem loops infinitos). Para durações finitas, repita
+  cada placeholder somente até completar o número de dias solicitado.
+- Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
+  com o total planejado e/ou "end_date" (YYYY-MM-DD). Caso contrário, deixe como null.
+- Para cada block novo, informe "weight_goal" com um dos valores: "lose" (perder peso),
+  "maintain" (manter) ou "gain" (ganhar). Escolha com base no objetivo do usuário
+  e na etapa do ciclo (ex.: bulking = "gain", cutting = "lose").
 - Saída estrita em JSON. Sem texto fora do JSON.
+- Descreva na "description" de cada block a meta calórica relativa (ex.: +10%, -15%), ajustes de macros, frequência de refeições livres e qualquer foco específico (ex.: mais carboidratos peri-treino, maior ingestão de fibras).
+- Se houver resumo textual prévio, aproveite-o para reforçar durações, metas de peso e prioridades alimentares em cada fase.
+
+PASSOS OBRIGATÓRIOS:
+1. Liste todas as fases/alvos mencionados (ex.: bulking 70 dias, cutting 20 dias, manutenção).
+2. Calcule quantos blocks de 1–15 dias são necessários por fase; use blocks parciais para cobrir dias restantes.
+3. Monte "block_sequence_placeholders" apenas até completar o total planejado, respeitando a ordem cronológica das fases.
+4. Para cada placeholder novo, detalhe na descrição como as calorias e macros mudam, quantas refeições/dia são previstas e como lidar com refeições livres ou refeeds.
+5. Indique weight_goal coerente com a fase e reutilize blocks existentes sempre que possível.
 
 FORMATO:
 {
@@ -16,10 +38,17 @@ FORMATO:
     "name": "string",
     "description": "string",
     "repetition_schema": "Semanal|Quinzenal|Mensal",
+    "target_duration_days": number|null,
+    "end_date": "YYYY-MM-DD"|null,
     "block_sequence_placeholders": ["placeholder_1","placeholder_2"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "string", "name": "string", "description": "string" }
+    {
+      "placeholder_id": "string",
+      "name": "string",
+      "description": "string",
+      "weight_goal": "lose|maintain|gain"
+    }
   ],
   "reuse_blocks_by_name": ["Block já existente 1"]
 }
@@ -30,10 +59,17 @@ EXEMPLO 1 (semana normal + fds livre):
     "name": "Dieta Semanal com 2 livres",
     "description": "Semana padrão com 2 refeições livres distribuídas no fim de semana.",
     "repetition_schema": "Semanal",
+    "target_duration_days": null,
+    "end_date": null,
     "block_sequence_placeholders": ["semana_com_fds_livre"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "semana_com_fds_livre", "name": "Semana com Fim de Semana Livre", "description": "Seg–Sex regrado; Sáb–Dom com 1 refeição livre/dia." }
+    {
+      "placeholder_id": "semana_com_fds_livre",
+      "name": "Semana com Fim de Semana Livre",
+      "description": "Seg–Sex regrado; Sáb–Dom com 1 refeição livre/dia.",
+      "weight_goal": "maintain"
+    }
   ],
   "reuse_blocks_by_name": []
 }
@@ -44,10 +80,95 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
     "name": "Ciclo 10/4 Déficit-Manutenção",
     "description": "10 dias em déficit, 4 dias em manutenção.",
     "repetition_schema": "Quinzenal",
+    "target_duration_days": 14,
+    "end_date": null,
     "block_sequence_placeholders": ["dez_deficit_quatro_manutencao"]
   },
   "blocks_to_create": [
-    { "placeholder_id": "dez_deficit_quatro_manutencao", "name": "10/4", "description": "10 dias de déficit seguidos de 4 dias de manutenção." }
+    {
+      "placeholder_id": "dez_deficit_quatro_manutencao",
+      "name": "10/4",
+      "description": "10 dias de déficit seguidos de 4 dias de manutenção.",
+      "weight_goal": "lose"
+    }
+  ],
+  "reuse_blocks_by_name": []
+}
+
+EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
+{
+  "diet_routine": {
+    "name": "Nutrição Bulking 80d + Cutting 20d",
+    "description": "Dez microciclos de 8 dias em superávit moderado seguidos de quatro microciclos de 5 dias em déficit controlado, fechando 100 dias com ajustes claros por fase.",
+    "repetition_schema": "Semanal",
+    "target_duration_days": 100,
+    "end_date": "2024-12-09",
+    "block_sequence_placeholders": [
+      "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d",
+      "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d",
+      "bulking_superavit_8d", "bulking_superavit_8d",
+      "cutting_deficit_5d", "cutting_deficit_5d", "cutting_deficit_5d", "cutting_deficit_5d"
+    ]
+  },
+  "blocks_to_create": [
+    {
+      "placeholder_id": "bulking_superavit_8d",
+      "name": "Bulking Superávit 8d",
+      "description": "Superávit de 10% (~+300 kcal) por 8 dias, 5 refeições/dia com carboidrato reforçado ao redor dos treinos e uma refeição livre monitorada ao final do microciclo.",
+      "weight_goal": "gain"
+    },
+    {
+      "placeholder_id": "cutting_deficit_5d",
+      "name": "Cutting Déficit 5d",
+      "description": "Déficit de 15% (~-350 kcal) por 5 dias, proteína 2,2 g/kg, carboidratos concentrados pré/pós-treino e estratégias extras de saciedade (fibras, água).",
+      "weight_goal": "lose"
+    }
+  ],
+  "reuse_blocks_by_name": []
+}
+
+EXEMPLO 4 (manutenção → mini-cut → manutenção):
+{
+  "diet_routine": {
+    "name": "Manutenção + Mini-cut 12 semanas",
+    "description": "Seis semanas de manutenção controlada, duas semanas de mini-cut agressivo e quatro semanas retomando manutenção.",
+    "repetition_schema": "Semanal",
+    "target_duration_days": 84,
+    "end_date": null,
+    "block_sequence_placeholders": [
+      "manutencao_semana",
+      "manutencao_semana",
+      "manutencao_semana",
+      "manutencao_semana",
+      "manutencao_semana",
+      "manutencao_semana",
+      "minicut_semana",
+      "minicut_semana",
+      "manutencao_retoma_semana",
+      "manutencao_retoma_semana",
+      "manutencao_retoma_semana",
+      "manutencao_retoma_semana"
+    ]
+  },
+  "blocks_to_create": [
+    {
+      "placeholder_id": "manutencao_semana",
+      "name": "Manutenção Controlada",
+      "description": "Meta calórica de manutenção com leve superávit em dias de treino pesado, reforçando proteína e micronutrientes.",
+      "weight_goal": "maintain"
+    },
+    {
+      "placeholder_id": "minicut_semana",
+      "name": "Mini-cut Semanal",
+      "description": "Déficit agressivo por 7 dias com alto teor proteico, carboidratos estrategicamente distribuídos e controle rígido de sódio.",
+      "weight_goal": "lose"
+    },
+    {
+      "placeholder_id": "manutencao_retoma_semana",
+      "name": "Retomada Manutenção",
+      "description": "Retorno a calorias de manutenção com reintrodução gradual de carboidratos e monitoramento de saciedade.",
+      "weight_goal": "maintain"
+    }
   ],
   "reuse_blocks_by_name": []
 }

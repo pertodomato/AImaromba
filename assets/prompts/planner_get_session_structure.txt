@@ -10,6 +10,9 @@ ENTRADA:
 REGRAS:
 - Saída estrita em JSON. Sem texto fora do JSON.
 - Reutilize sessões existentes quando compatíveis (mesmo nome/propósito); combine por nome.
+- Alinhe o conteúdo da sessão ao contexto do dia (fase de volume, cutting, deload, força, condicionamento, corrida, etc.).
+- Se houver músculos de foco declarados para o bloco/dia, mantenha exercícios que preservem todo o corpo ao longo da semana,
+  mas priorize variações extras, volume ou intensidade adicional para os músculos de foco.
 - Para cada sessão criada, liste seus exercícios:
   - Se o exercício existir, inclua apenas em "reuse_exercises_by_name".
   - Se não existir, inclua em "exercises_to_create" com músculos válidos e metrics.
@@ -151,6 +154,120 @@ EXEMPLO 2 (Day: Lower A)
           "primary_muscles": ["glutes"],
           "secondary_muscles": ["quadriceps","hamstrings"],
           "relevant_metrics": ["Tempo"]
+        }
+      ],
+      "reuse_exercises_by_name": []
+    }
+  ],
+  "reuse_sessions_by_name": []
+}
+
+EXEMPLO 3 (Day Cutting Condicionamento)
+{
+  "day_id": "cut_cardio_forca",
+  "sessions_to_create": [
+    {
+      "name": "Força Metabólica",
+      "description": "Circuito híbrido para manter força com gasto calórico alto na fase cutting.",
+      "exercises_to_create": [
+        {
+          "name": "Agachamento Frontal com Barra",
+          "description": "4x6 em RPE 7, foco em técnica rígida.",
+          "primary_muscles": ["quadriceps"],
+          "secondary_muscles": ["glutes","core"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Remada Curvada com Barra",
+          "description": "3x8-10 mantendo tronco estável.",
+          "primary_muscles": ["upper_back"],
+          "secondary_muscles": ["lats","biceps"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Kettlebell Swing",
+          "description": "3x15 com descanso curto para elevar FC.",
+          "primary_muscles": ["glutes"],
+          "secondary_muscles": ["hamstrings","lower_back"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Bike Ergométrica Intervalada",
+          "description": "6 sprints de 40 s / 20 s descanso ativo.",
+          "primary_muscles": ["quadriceps"],
+          "secondary_muscles": ["glutes","calves"],
+          "relevant_metrics": ["Tempo","Distância"]
+        },
+        {
+          "name": "Prancha com Alcance",
+          "description": "3x40 s para core anti-rotação.",
+          "primary_muscles": ["core"],
+          "secondary_muscles": ["shoulders"],
+          "relevant_metrics": ["Tempo","Séries"]
+        }
+      ],
+      "reuse_exercises_by_name": []
+    }
+  ],
+  "reuse_sessions_by_name": []
+}
+
+EXEMPLO 4 (Day Upper focado em Costas/Braços mantendo equilíbrio):
+{
+  "day_id": "upper_back_arms_a",
+  "sessions_to_create": [
+    {
+      "name": "Upper Costas/Braços Prioridade",
+      "description": "Costas espessas + braços com suporte mínimo de peito/ombro para manter equilíbrio.",
+      "exercises_to_create": [
+        {
+          "name": "Remada Curvada com Barra",
+          "description": "4x6-8 em RPE 8, foco em dorsais espessos.",
+          "primary_muscles": ["upper_back"],
+          "secondary_muscles": ["lats","biceps"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Pulldown Neutro",
+          "description": "3x10-12 controlado para enfatizar dorsais largura.",
+          "primary_muscles": ["lats"],
+          "secondary_muscles": ["upper_back","biceps"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Bíceps Barra EZ",
+          "description": "3x8-10 com isometria final.",
+          "primary_muscles": ["biceps"],
+          "secondary_muscles": [],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Rosca Martelo Alternada",
+          "description": "3x12 alternando, enfatizando braquiorradial.",
+          "primary_muscles": ["biceps"],
+          "secondary_muscles": ["forearms"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Tríceps Corda na Polia",
+          "description": "3x12-15 para manter equilíbrio de braços.",
+          "primary_muscles": ["triceps"],
+          "secondary_muscles": [],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Supino Inclinado com Halteres",
+          "description": "2x10 leve para manter estímulo em peito/ombro sem roubar recuperação.",
+          "primary_muscles": ["chest"],
+          "secondary_muscles": ["anterior_deltoid","triceps"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
+        },
+        {
+          "name": "Face Pull na Polia",
+          "description": "3x15 para estabilizadores de ombro.",
+          "primary_muscles": ["rear_deltoid"],
+          "secondary_muscles": ["upper_back"],
+          "relevant_metrics": ["Peso","Repetições","Séries","DescansoSeg"]
         }
       ],
       "reuse_exercises_by_name": []

@@ -12,6 +12,7 @@ import 'package:fitapp/core/models/meal.dart';
 import 'package:fitapp/core/models/meal_entry.dart';
 import 'package:fitapp/core/services/hive_service.dart';
 import 'package:fitapp/core/services/llm_service.dart';
+import 'package:fitapp/core/utils/diet_schedule_utils.dart';
 import 'package:fitapp/core/utils/meal_ai_service.dart';
 import 'package:fitapp/features/5_nutrition/presentation/pages/meal_details_screen.dart';
 
@@ -49,20 +50,27 @@ class _PhotoCaptureAIScreenState extends State<PhotoCaptureAIScreen> {
       final bytes = await pickedFile.readAsBytes();
       final b64 = base64Encode(bytes);
 
+      final hive = context.read<HiveService>();
+      final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
+      final bias = DietScheduleUtils.calorieBiasForGoal(dietTarget?.weightGoal);
+
       final ai = MealAIService(llm);
       // MUDANÇA: Chamando o novo método que retorna a tupla
-      final resultTuple = await ai.fromImageAutoWithRawResponse([b64], extraText: 'Estime nome do prato e peso total em gramas.');
-      
+      final resultTuple = await ai.fromImageAutoWithRawResponse(
+        [b64],
+        extraText: 'Estime nome do prato e peso total em gramas.',
+        calorieBias: bias,
+      );
+
       final result = resultTuple?.result;
       final rawAiResponse = resultTuple?.rawResponse ?? '{"error":"No response from AI"}';
-      
+
       if (result == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não conseguiu entender a foto.')));
         return;
       }
 
-      final hive = context.read<HiveService>();
       final mealsBox = hive.getBox<Meal>('meals');
 
       Meal? toUse;
