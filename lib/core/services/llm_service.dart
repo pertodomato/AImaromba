@@ -14,7 +14,7 @@ abstract class LLMProvider {
   Future<String> getJson(String prompt, {List<Uint8List>? images});
 }
 
-/// Gemini (sem alterações, continua funcional)
+/// Gemini (inalterado)
 class GeminiProvider implements LLMProvider {
   final String apiKey;
   final String textModel;
@@ -39,10 +39,14 @@ class GeminiProvider implements LLMProvider {
         for (final bytes in images) {
           parts.add(gg.DataPart('image/jpeg', bytes));
         }
-        final resp = await _vision.generateContent([sys, gg.Content.multi(parts)]).timeout(const Duration(seconds: 45));
+        final resp = await _vision
+            .generateContent([sys, gg.Content.multi(parts)])
+            .timeout(const Duration(seconds: 45));
         return resp.text ?? '{}';
       } else {
-        final resp = await _text.generateContent([sys, gg.Content.text(prompt)]).timeout(const Duration(seconds: 45));
+        final resp = await _text
+            .generateContent([sys, gg.Content.text(prompt)])
+            .timeout(const Duration(seconds: 45));
         return resp.text ?? '{}';
       }
     } catch (e) {
@@ -51,70 +55,100 @@ class GeminiProvider implements LLMProvider {
   }
 }
 
-/// GPTProvider usando a API /v1/chat/completions para maior compatibilidade
+/// GPTProvider usando a API /v1/chat/completions
 class GPTProvider implements LLMProvider {
   final String apiKey;
-  final String model;
+  final String model; // alvo preferido
   final Dio _dio = Dio();
 
   GPTProvider(this.apiKey, {String? model})
-      // MUDANÇA: Usando 'gpt-5-mini-high' como padrão conforme solicitado para priorizar o modelo mini high da família GPT-5.
       : model = (model?.trim().isNotEmpty ?? false) ? model! : 'gpt-5-mini-high';
 
   @override
   Future<String> getJson(String prompt, {List<Uint8List>? images}) async {
-    // MUDANÇA: Voltamos ao endpoint padrão /v1/chat/completions que é mais comum.
     const endpoint = 'https://api.openai.com/v1/chat/completions';
 
-    final List<Map<String, dynamic>> messages = [
-      {
-        "role": "system",
-        "content": "Você responde APENAS JSON. Sem texto fora do JSON."
-      },
+    final userContent = <Map<String, dynamic>>[
+      {"type": "text", "text": prompt},
+      if (images != null && images.isNotEmpty)
+        for (final bytes in images)
+          {
+            "type": "image_url",
+            "image_url": {"url": "data:image/jpeg;base64,${base64Encode(bytes)}"}
+          }
     ];
 
-    // Monta a mensagem do usuário (pode ser multimodal)
-    final List<Map<String, dynamic>> userContent = [];
-    userContent.add({"type": "text", "text": prompt}); // Adiciona o prompt de texto
+    final messages = <Map<String, dynamic>>[
+      {"role": "system", "content": "Você responde APENAS JSON. Sem texto fora do JSON."},
+      {"role": "user", "content": userContent},
+    ];
 
-    if (images != null && images.isNotEmpty) {
-      for (final bytes in images) {
-        userContent.add({
-          "type": "image_url",
-          "image_url": {"url": "data:image/jpeg;base64,${base64Encode(bytes)}"}
-        });
-      }
-    }
-
-    messages.add({"role": "user", "content": userContent});
-
-    final payload = {
-      "model": model,
-      "messages": messages,
-      "max_tokens": 2048,
-       // Para forçar o modo JSON em modelos que o suportam
-      "response_format": {"type": "json_object"}
-    };
-
-    try {
-      final response = await _dio.post(
+    Future<Response<dynamic>> _call(String useModel) {
+      final payload = {
+        "model": useModel,
+        "messages": messages,
+        "response_format": {"type": "json_object"}
+      };
+      return _dio.post(
         endpoint,
         data: payload,
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-        ),
-      ).timeout(const Duration(seconds: 45));
+        options: Options(headers: {
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
+        }),
+      );
+    }
 
-      if (response.statusCode == 200 && response.data != null) {
-        return response.data['choices'][0]['message']['content'] ?? '{}';
+    String? _extractErrCode(dynamic data) {
+      if (data is Map && data['error'] is Map) {
+        final err = data['error'] as Map;
+        final code = err['code'];
+        return code?.toString();
       }
-      return jsonEncode(response.data);
+      return null;
+    }
 
+    String _extractErrMsg(dynamic data, String? fallback) {
+      if (data is Map && data['error'] is Map) {
+        final err = data['error'] as Map;
+        final msg = err['message'];
+        if (msg != null) return msg.toString();
+      }
+      return fallback ?? '';
+    }
+
+    try {
+      final resp = await _call(model).timeout(const Duration(seconds: 45));
+      if (resp.statusCode == 200 && resp.data != null) {
+        return resp.data['choices'][0]['message']['content'] ?? '{}';
+      }
+      return jsonEncode(resp.data);
     } catch (e) {
       if (e is DioException) {
+        final data = e.response?.data;
+        final msg = _extractErrMsg(data, e.message);
+        final code = _extractErrCode(data);
+        final isModelNotFound = (code == 'model_not_found') ||
+            msg.contains('does not exist') ||
+            msg.contains('not exist') ||
+            msg.contains('do not have access') ||
+            msg.contains('not found');
+
+        if (isModelNotFound && model != 'gpt-5-mini') {
+          try {
+            final resp = await _call('gpt-5-mini').timeout(const Duration(seconds: 45));
+            if (resp.statusCode == 200 && resp.data != null) {
+              return resp.data['choices'][0]['message']['content'] ?? '{}';
+            }
+            return jsonEncode(resp.data);
+          } catch (e2) {
+            if (e2 is DioException) {
+              return '{"error":"OpenAI API error","detail":"${e2.response?.data ?? e2.message}"}';
+            }
+            return '{"error":"OpenAI request failed","detail":"$e2"}';
+          }
+        }
+
         return '{"error":"OpenAI API error","detail":"${e.response?.data ?? e.message}"}';
       }
       return '{"error":"OpenAI request failed","detail":"$e"}';
@@ -122,8 +156,7 @@ class GPTProvider implements LLMProvider {
   }
 }
 
-
-/// Fachada (sem alterações)
+/// Fachada
 class LLMService {
   LLMProvider? _provider;
 
@@ -131,6 +164,7 @@ class LLMService {
     if (profile.selectedLlm == 'gemini' && profile.geminiApiKey.isNotEmpty) {
       _provider = GeminiProvider(profile.geminiApiKey);
     } else if (profile.selectedLlm == 'gpt' && profile.gptApiKey.isNotEmpty) {
+      // Sem depender de openAiModelId; usa default com fallback.
       _provider = GPTProvider(profile.gptApiKey);
     } else {
       _provider = null;
