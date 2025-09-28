@@ -15,6 +15,7 @@ REGRAS:
   a duração mencionada.
 - Se houver mais de um objetivo/fase, crie **no mínimo um placeholder exclusivo para cada fase**; nunca concentre fases distintas
   em um único block. A sequência deve deixar explícito quando uma fase começa e termina.
+
 - Monte "block_sequence_placeholders" apenas para o período planejado (sem loops infinitos). Em ciclos finitos, repita cada placeholder
   somente até completar a contagem de dias solicitada.
 - Se o usuário declarar músculos de foco, garanta blocks que cubram todo o corpo ao longo da semana/quinzena, mas com maior frequência ou volume para os músculos priorizados (ex.: foco em costas/braços → 2 sessões para eles, 1 para peito/pernas).
@@ -78,6 +79,7 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
   "routine": {
     "name": "Bulking 80d + Cutting 20d",
     "description": "Onze microciclos (~80 dias) focados em ganho seguidos de três microciclos (~20 dias) de corte para completar 100 dias.",
+
     "repetition_schema": "Semanal",
     "target_duration_days": 100,
     "end_date": "2024-12-31",
@@ -86,6 +88,7 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo", "bulk_microciclo",
       "bulk_microciclo", "bulk_microciclo", "bulk_microciclo_final_10d",
       "cut_microciclo", "cut_microciclo", "cut_microciclo_final_6d"
+
     ]
   },
   "blocks_to_create": [
@@ -155,6 +158,7 @@ EXEMPLO 4 (Base → Pico para prova):
       "placeholder_id": "taper_semana",
       "name": "Taper Semanal",
       "description": "Semana de polimento com volume reduzido e foco em velocidade, mobilidade e recuperação ativa."
+
     }
   ],
   "reuse_blocks_by_name": []

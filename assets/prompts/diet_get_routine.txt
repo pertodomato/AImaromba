@@ -12,6 +12,7 @@ REGRAS:
   próprios e aparecer na sequência na ordem cronológica, repetindo a quantidade de vezes necessária para cumprir a duração desejada.
 - Quando identificar objetivos/etapas diferentes, gere **pelo menos um placeholder específico por fase** e distribua-os na
   "block_sequence_placeholders" conforme o calendário. Nunca agregue bulking e cutting (ou objetivos distintos) em um único block.
+
 - Ao montar "block_sequence_placeholders", cubra apenas o período planejado (sem loops infinitos). Para durações finitas, repita
   cada placeholder somente até completar o número de dias solicitado.
 - Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
@@ -19,6 +20,7 @@ REGRAS:
 - Para cada block novo, informe "weight_goal" com um dos valores: "lose" (perder peso),
   "maintain" (manter) ou "gain" (ganhar). Escolha com base no objetivo do usuário
   e na etapa do ciclo (ex.: bulking = "gain", cutting = "lose").
+
 - Saída estrita em JSON. Sem texto fora do JSON.
 
 FORMATO:
@@ -71,6 +73,7 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
     "repetition_schema": "Quinzenal",
     "target_duration_days": 14,
     "end_date": null,
+
     "block_sequence_placeholders": ["dez_deficit_quatro_manutencao"]
   },
   "blocks_to_create": [
@@ -179,6 +182,7 @@ EXEMPLO 4 (manutenção → mini-cut → manutenção):
       "name": "Retomada Manutenção",
       "description": "Retorno a calorias de manutenção com reintrodução gradual de carboidratos e monitoramento de saciedade.",
       "weight_goal": "maintain"
+
     }
   ],
   "reuse_blocks_by_name": []
