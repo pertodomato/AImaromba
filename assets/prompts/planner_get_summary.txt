@@ -9,7 +9,9 @@ REGRAS DE REDAÇÃO (PT-BR):
 - Produza dois parágrafos separados:
   1) "workout_summary": resumo do plano de treino.
   2) "nutrition_summary": resumo do plano de nutrição.
-- Cada parágrafo deve ter **entre 5 e 9 frases**, ser **claro, motivador e prático**, evitando jargões difíceis.
+- Cada parágrafo deve ter **entre 7 e 10 frases**, ser **claro, motivador e prático**, evitando jargões difíceis.
+- Em uma das frases de cada parágrafo, mencione explicitamente o pedido original do usuário (ex.: "você pediu 80 dias de bulking
+  seguidos de 20 de cutting") para reforçar que o plano responde à solicitação.
 - **Inclua detalhes concretos** sempre que possível, como:
   • TREINO: divisão (ex.: ABC, Upper/Lower, PPL, Full Body), frequência semanal, ordem de dias, principais exercícios/gestos, faixa de repetições/series, **RPE** ou esforço alvo, intervalos de descanso, esquema de **progressão** (semanal/quizenal, sobrecarga progressiva) e **deload** quando aplicável, aquecimento e mobilidade essenciais, adaptações a limitações/dor e equipamentos disponíveis.
   • NUTRIÇÃO: estimativa de **TDEE** (quando dados permitirem), **meta calórica** (déficit/superávit/manutenção) com número aproximado de kcal/dia, distribuição de **macros** (g/dia e %), **fibras** (g/dia), **hidratação** (L/dia), janelas/organização das refeições (pré/pós-treino), possíveis **substituições**, estratégia de **aderência** (incluindo refeições livres planejadas), e observações sobre **suplementação opcional** (sem promessas médicas).

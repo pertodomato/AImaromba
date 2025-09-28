@@ -6,14 +6,15 @@ CONSISTÊNCIA: nomes e placeholders em snake_case estável.
 
 ENTRADAS:
 - Diet Block (placeholder): {diet_block_placeholder_json}
-  • Ex.: {"placeholder_id":"semana_tipo_1","name":"Semana Tipo 1","description":"Padrão de corte leve"}
+  • Ex.: {"placeholder_id":"semana_tipo_1","name":"Semana Tipo 1","description":"Padrão de corte leve","weight_goal":"lose"}
 - Diet Days já existentes no banco (opcional): {existing_diet_days}
   • Ex.: [{"name":"Dia de Semana","slug":"dia_de_semana"},{"name":"Fim de Semana","slug":"fim_de_semana"}]
 - Preferências alimentares do usuário (opcional): {user_food_prefs}
   • Ex.: ["frango","arroz","aveia","frutas"]
 
 OBJETIVO:
-Definir **quais DIET DAYS compõem o block** (entre 1 e 15 entradas), com nomes e descrições claros, prontos para reutilização e persistência.
+Definir **quais DIET DAYS compõem o block** (entre 1 e 15 entradas), com nomes e descrições claros, prontos para reutilização e
+persistência.
 Este prompt **NÃO** decide quantidades de comida; isso será feito depois por **diet_get_day_plan.txt**.
 
 REGRAS:
@@ -27,9 +28,11 @@ REGRAS:
 5) Varie de forma prática:
    - Semana típica: normalmente 2–4 tipos (ex.: “Dia de Semana”, “Fim de Semana”, “Refeição Livre”, “Refeed”).
    - Ciclos (ex.: 10/4 déficit/manutenção): podem ser 2–4 tipos (“Déficit A”, “Déficit B”, “Manutenção A”, “Manutenção B”).
-6) **NÃO** inclua metas numéricas (kcal/macros) aqui; apenas a **ideia** do dia. Quantidades virão em diet_get_day_plan.
-7) Considere **user_food_prefs** apenas para orientar a descrição (ex.: “preferir frango/ovos/aveia no café”), sem engessar marcas.
-8) **JSON estrito**: nenhum texto fora do objeto.
+   - Para blocks de fases (bulking, cutting, deload calórico), destaque o foco da fase na descrição (mais carbo, refeição livre, foco em fibra etc.).
+6) Use "weight_goal" (quando presente) apenas como contexto: dias dentro de um block "lose" devem reforçar déficit; "gain" enfatiza superávit controlado; "maintain" busca equilíbrio.
+7) **NÃO** inclua metas numéricas (kcal/macros) aqui; apenas a **ideia** do dia. Quantidades virão em diet_get_day_plan.
+8) Considere **user_food_prefs** apenas para orientar a descrição (ex.: “preferir frango/ovos/aveia no café”), sem engessar marcas.
+9) **JSON estrito**: nenhum texto fora do objeto.
 
 FORMATO DE SAÍDA (ESTRITO):
 {
@@ -100,4 +103,33 @@ SAÍDA:
     }
   ],
   "reuse_days_by_name": ["Dia de Semana"]
+}
+
+EXEMPLO 3 — Block Bulking (superávit controlado)
+ENTRADA (resumo):
+- diet_block_placeholder_json = {"placeholder_id":"bulking_semana","name":"Semana Bulking","description":"Superávit de ~10%","weight_goal":"gain"}
+- existing_diet_days = []
+- user_food_prefs = ["arroz","massa","carnes_magras","frutas"]
+
+SAÍDA:
+{
+  "diet_block_id": "bulking_semana",
+  "days_to_create": [
+    {
+      "placeholder_id": "dia_forca",
+      "name": "Dia Força",
+      "description": "Superávit moderado, carbo alto no pré e pós-treino de força."
+    },
+    {
+      "placeholder_id": "dia_volume",
+      "name": "Dia Volume",
+      "description": "Refeições densas em energia distribuídas em 5-6 momentos, foco em carbo complexo."
+    },
+    {
+      "placeholder_id": "dia_flexivel",
+      "name": "Dia Flexível",
+      "description": "Inclui 1 refeição livre controlada mantendo proteína alta e vegetais."
+    }
+  ],
+  "reuse_days_by_name": []
 }
