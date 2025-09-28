@@ -21,7 +21,7 @@ a duração mencionada.
 - repetition_schema: "Semanal" | "Quinzenal" | "Mensal".
 - Se o usuário mencionar duração total ou datas finais (ex.: "80 dias de bulking + 20 dias de cutting"), preencha
   "target_duration_days" com o total planejado e/ou "end_date" em formato ISO (YYYY-MM-DD).
-- Caso não haja indicação explícita, deixe "target_duration_days" e "end_date" como null.
+- Caso não haja indicação explícita, deixe "target_duration_days" e "end_date" como 6 meses depois do começo.
 
 FORMATO:
 {
@@ -63,8 +63,6 @@ EXEMPLO 2 (Upper/Lower 4x com 3 descansos):
     "repetition_schema": "Semanal",
     "target_duration_days": null,
     "end_date": null,
-    "target_duration_days": 84,
-    "end_date": "2024-09-30",
     "block_sequence_placeholders": ["upper_lower_semana"]
   },
   "blocks_to_create": [

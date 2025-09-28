@@ -17,8 +17,9 @@ REGRAS:
 - Para cada block novo, informe "weight_goal" com um dos valores: "lose" (perder peso),
   "maintain" (manter) ou "gain" (ganhar). Escolha com base no objetivo do usuário
   e na etapa do ciclo (ex.: bulking = "gain", cutting = "lose").
+
 - Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
-  com o total planejado e/ou "end_date" (YYYY-MM-DD). Caso contrário, deixe como null.
+  com o total planejado e/ou "end_date" (YYYY-MM-DD). Caso contrário, deixe le pra seis meses depois do inicio.
 - Saída estrita em JSON. Sem texto fora do JSON.
 
 FORMATO:
@@ -68,8 +69,8 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
   "diet_routine": {
     "name": "Ciclo 10/4 Déficit-Manutenção",
     "description": "10 dias em déficit, 4 dias em manutenção.",
-    "repetition_schema": "Quinzenal"
-    "target_duration_days": 84,
+    "repetition_schema": "Quinzenal",
+    "target_duration_days": 14,
     "end_date": "2024-11-15",
     "block_sequence_placeholders": ["dez_deficit_quatro_manutencao"]
   },
@@ -104,6 +105,8 @@ EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
       "bulking_semana",
       "bulking_semana",
       "bulking_semana",
+      "bulking_semana",
+      "cutting_semana",
       "cutting_semana",
       "cutting_semana",
       "cutting_semana"

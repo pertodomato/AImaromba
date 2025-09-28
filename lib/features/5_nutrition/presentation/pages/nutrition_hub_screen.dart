@@ -56,16 +56,7 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
         _dietGoalLabel = label;
       }
       _dietWeightGoal = dietTarget.weightGoal;
-      final parts = <String>[];
-      if (dietTarget.blockName != null && dietTarget.blockName!.isNotEmpty) {
-        parts.add(dietTarget.blockName!);
-      }
-      if (dietTarget.dayName != null && dietTarget.dayName!.isNotEmpty) {
-        parts.add(dietTarget.dayName!);
-      }
-      if (parts.isNotEmpty) {
-        _dietGoalLabel = parts.join(' • ');
-      }
+
     }
     setState(() {});
   }
@@ -178,7 +169,6 @@ class _NutritionHubScreenState extends State<NutritionHubScreen> {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('IA não retornou alimento.')));
                 return;
               }
-              final hive = context.read<HiveService>();
               await hive.getBox<Meal>('meals').add(meal);
               await hive.getBox<MealEntry>('meal_entries').add(MealEntry(
                 id: const Uuid().v4(),

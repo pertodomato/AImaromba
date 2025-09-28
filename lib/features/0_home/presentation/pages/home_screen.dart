@@ -143,17 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (label != null) {
         _dietGoalLabel = label;
 
-    final dietTarget = DietScheduleUtils.resolveDailyTarget(hive: hive);
-    if (dietTarget != null) {
-      final parts = <String>[];
-      if (dietTarget.blockName != null && dietTarget.blockName!.isNotEmpty) {
-        parts.add(dietTarget.blockName!);
-      }
-      if (dietTarget.dayName != null && dietTarget.dayName!.isNotEmpty) {
-        parts.add(dietTarget.dayName!);
-      }
-      if (parts.isNotEmpty) {
-        _dietGoalLabel = parts.join(' • ');
+
       }
       if (dietTarget.hasCalorieGoal) {
         _dailyGoalKcal = dietTarget.calories;
