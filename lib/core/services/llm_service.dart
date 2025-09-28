@@ -58,8 +58,8 @@ class GPTProvider implements LLMProvider {
   final Dio _dio = Dio();
 
   GPTProvider(this.apiKey, {String? model})
-      // MUDANÇA: Usando 'gpt-4o' como padrão, pois é mais estável e disponível.
-      : model = (model?.trim().isNotEmpty ?? false) ? model! : 'gpt-4o';
+      // MUDANÇA: Usando 'gpt-5-mini-high' como padrão conforme solicitado para priorizar o modelo mini high da família GPT-5.
+      : model = (model?.trim().isNotEmpty ?? false) ? model! : 'gpt-5-mini-high';
 
   @override
   Future<String> getJson(String prompt, {List<Uint8List>? images}) async {

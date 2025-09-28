@@ -75,7 +75,7 @@ class PlannerOrchestrator {
       candidateEnd = explicitEnd;
     } else if (durationDays != null) {
       candidateEnd = startDate.add(Duration(days: durationDays - 1));
-    } else if (fallbackDays != null && fallbackDays > _defaultDurationDays) {
+    } else if (fallbackDays != null && fallbackDays > 0) {
       candidateEnd = startDate.add(Duration(days: fallbackDays - 1));
     } else {
       candidateEnd = startDate.add(const Duration(days: _defaultDurationDays - 1));

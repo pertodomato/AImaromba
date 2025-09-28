@@ -15,6 +15,8 @@ REGRAS:
   a duração mencionada.
 - Se houver mais de um objetivo/fase, crie **no mínimo um placeholder exclusivo para cada fase**; nunca concentre fases distintas
   em um único block. A sequência deve deixar explícito quando uma fase começa e termina.
+- Quando a fase tiver comportamento homogêneo, reutilize o mesmo placeholder e apenas repita-o quantas vezes forem necessárias
+  para cobrir a duração pedida; só crie variações extras se o usuário mencionar subetapas distintas (ex.: deload, pico, teste).
 - Monte "block_sequence_placeholders" apenas para o período planejado (sem loops infinitos). Em ciclos finitos, repita cada placeholder
   somente até completar a contagem de dias solicitada.
 - Se o usuário declarar músculos de foco, garanta blocks que cubram todo o corpo ao longo da semana/quinzena, mas com maior frequência ou volume para os músculos priorizados (ex.: foco em costas/braços → 2 sessões para eles, 1 para peito/pernas).
@@ -84,51 +86,31 @@ EXEMPLO 2 (Upper/Lower 4x com 3 descansos):
   "reuse_blocks_by_name": []
 }
 
-EXEMPLO 3 (70 dias de bulking + 20 dias de cutting):
+EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
 {
   "routine": {
-    "name": "Bulking 70d + Cutting 20d",
-    "description": "Dez microciclos (~70 dias) focados em ganho seguidos de duas semanas completas e um bloco final de 6 dias de cutting para fechar 90 dias.",
+    "name": "Bulking 80d + Cutting 20d",
+    "description": "Dez microciclos de 8 dias com volume extra para costas e braços (2 sessões/semana) seguidos de quatro microciclos de 5 dias focados em déficit e condicionamento para fechar exatamente 100 dias.",
     "repetition_schema": "Semanal",
-    "target_duration_days": 90,
-    "end_date": "2024-11-30",
+    "target_duration_days": 100,
+    "end_date": "2024-12-09",
     "block_sequence_placeholders": [
-      "bulk_volume_semana", "bulk_volume_semana", "bulk_volume_semana", "bulk_volume_semana",
-      "bulk_volume_semana", "bulk_volume_semana", "bulk_intensidade_semana", "bulk_intensidade_semana",
-      "bulk_refino_7d", "bulk_deload_transicao",
-      "cut_semana", "cut_semana", "cut_final_6d"
+      "bulking_microciclo_8d", "bulking_microciclo_8d", "bulking_microciclo_8d", "bulking_microciclo_8d",
+      "bulking_microciclo_8d", "bulking_microciclo_8d", "bulking_microciclo_8d", "bulking_microciclo_8d",
+      "bulking_microciclo_8d", "bulking_microciclo_8d",
+      "cutting_microciclo_5d", "cutting_microciclo_5d", "cutting_microciclo_5d", "cutting_microciclo_5d"
     ]
   },
   "blocks_to_create": [
     {
-      "placeholder_id": "bulk_volume_semana",
-      "name": "Bulking Volume Semana",
-      "description": "Semana de 6 sessões com foco em volume alto para dorsais e braços (trabalhados 2x) enquanto peito e pernas aparecem 1x para manutenção."
+      "placeholder_id": "bulking_microciclo_8d",
+      "name": "Bulking Microciclo 8d",
+      "description": "Bloco de 8 dias cobrindo corpo inteiro: costas e braços 2x, peito 1x, pernas 1x, ombros/core 1x e dois dias de recuperação ativa/alongamento."
     },
     {
-      "placeholder_id": "bulk_intensidade_semana",
-      "name": "Bulking Intensidade Semana",
-      "description": "Semana com 5 sessões priorizando cargas mais pesadas em compostos, mantendo um dia leve de técnica e mobilidade."
-    },
-    {
-      "placeholder_id": "bulk_refino_7d",
-      "name": "Bulking Refino 7d",
-      "description": "Bloco de 7 dias para consolidar ganhos com 4 sessões focadas em pontos fracos e 2 sessões de manutenção geral."
-    },
-    {
-      "placeholder_id": "bulk_deload_transicao",
-      "name": "Deload Transição Bulking",
-      "description": "Semana com volume 40% menor, 3 sessões leves e foco em mobilidade/alongamentos preparando para o cutting."
-    },
-    {
-      "placeholder_id": "cut_semana",
-      "name": "Cutting Semana",
-      "description": "Semana com 5 sessões moderadas, circuitos metabólicos e manutenção de força em compostos principais."
-    },
-    {
-      "placeholder_id": "cut_final_6d",
-      "name": "Cutting Final 6d",
-      "description": "Bloco de 6 dias finalizando o déficit com 4 treinos curtos, foco em passos extras e trabalho de core/postura."
+      "placeholder_id": "cutting_microciclo_5d",
+      "name": "Cutting Microciclo 5d",
+      "description": "Bloco de 5 dias alternando força total-corpo, HIIT e circuitos metabólicos, mantendo uma sessão leve de pernas/peito e foco extra em dorsais e braços para preservar massa magra."
     }
   ],
   "reuse_blocks_by_name": []

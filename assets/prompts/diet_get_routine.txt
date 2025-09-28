@@ -12,6 +12,8 @@ REGRAS:
   próprios e aparecer na sequência na ordem cronológica, repetindo a quantidade de vezes necessária para cumprir a duração desejada.
 - Quando identificar objetivos/etapas diferentes, gere **pelo menos um placeholder específico por fase** e distribua-os na
   "block_sequence_placeholders" conforme o calendário. Nunca agregue bulking e cutting (ou objetivos distintos) em um único block.
+- Se a fase mantiver as mesmas regras de macros/calorias do início ao fim, reutilize o mesmo placeholder e apenas repita-o até
+  completar os dias daquela fase. Só crie variações adicionais quando houver subciclos declarados (ex.: refeeds específicos, deload alimentar).
 - Ao montar "block_sequence_placeholders", cubra apenas o período planejado (sem loops infinitos). Para durações finitas, repita
   cada placeholder somente até completar o número de dias solicitado.
 - Se houver duração total/datas mencionadas nas respostas, indique "target_duration_days"
@@ -92,65 +94,33 @@ EXEMPLO 2 (ciclo 10/4 déficit/manutenção):
   ],
   "reuse_blocks_by_name": []
 }
-
-EXEMPLO 3 (70 dias de bulking + 20 dias de cutting):
+EXEMPLO 3 (80 dias de bulking + 20 dias de cutting):
 {
   "diet_routine": {
-    "name": "Nutrição Bulking 70d + Cutting 20d",
-    "description": "Dez semanas (~70 dias) em superávit moderado seguidas de duas semanas e um bloco final de 6 dias de déficit para completar 90 dias.",
+    "name": "Nutrição Bulking 80d + Cutting 20d",
+    "description": "Dez microciclos de 8 dias em superávit moderado seguidos de quatro microciclos de 5 dias em déficit controlado, fechando 100 dias com ajustes claros por fase.",
     "repetition_schema": "Semanal",
-    "target_duration_days": 90,
-    "end_date": "2024-11-30",
+    "target_duration_days": 100,
+    "end_date": "2024-12-09",
     "block_sequence_placeholders": [
-      "bulking_superavit_semana",
-      "bulking_superavit_semana",
-      "bulking_superavit_semana",
-      "bulking_superavit_semana",
-      "bulking_superavit_semana",
-      "bulking_superavit_semana",
-      "bulking_carb_cycle_semana",
-      "bulking_carb_cycle_semana",
-      "bulking_checkpoint_7d",
-      "bulking_deload_macro",
-      "cutting_semana",
-      "cutting_semana",
-      "cutting_final_6d"
+      "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d",
+      "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d", "bulking_superavit_8d",
+      "bulking_superavit_8d", "bulking_superavit_8d",
+      "cutting_deficit_5d", "cutting_deficit_5d", "cutting_deficit_5d", "cutting_deficit_5d"
     ]
   },
   "blocks_to_create": [
-    {      "placeholder_id": "bulking_superavit_semana",
-      "name": "Bulking Superávit Semana",
-      "description": "Superávit de ~10% (≈+280 kcal) com 4 refeições grandes e 2 lanches, carboidratos reforçados pré/pós-treino e 1 refeição livre pequena a cada 7 dias.",
+    {
+      "placeholder_id": "bulking_superavit_8d",
+      "name": "Bulking Superávit 8d",
+      "description": "Superávit de 10% (~+300 kcal) por 8 dias, 5 refeições/dia com carboidrato reforçado ao redor dos treinos e uma refeição livre monitorada ao final do microciclo.",
       "weight_goal": "gain"
     },
     {
-      "placeholder_id": "bulking_carb_cycle_semana",
-      "name": "Bulking Carb Cycle Semana",
-      "description": "Superávit de 8% com carb cycling (dias de treino +15%, dias leves +5%), proteína 2,0 g/kg e gorduras 0,9 g/kg.",
-      "weight_goal": "gain"
-    },
-    {
-      "placeholder_id": "bulking_checkpoint_7d",
-      "name": "Checkpoint Manutenção 7d",
-      "description": "Bloco de 7 dias em manutenção para avaliar digestão, controlar sódio e revisar medidas mantendo proteína alta.",
-      "weight_goal": "maintain"
-    },
-    {
-      "placeholder_id": "bulking_deload_macro",
-      "name": "Deload Macro Semanal",
-      "description": "Semana com +5% calorias, refeições mais leves à noite e foco em micronutrientes/fibras para transição ao déficit.",
-      "weight_goal": "maintain"
-    },
-    {
-      "placeholder_id": "cutting_semana",
-      "name": "Cutting Semana",
-      "description": "Déficit de 15% (≈-350 kcal) com 5 refeições, proteína 2,2 g/kg, carboidratos estrategicamente reduzidos à noite e uma refeição refeeed leve a cada 10 dias.",
-      "weight_goal": "lose"
-    },
-    {
-      "placeholder_id": "cutting_final_6d",
-      "name": "Cutting Final 6d",
-      "description": "Últimos 6 dias em déficit de 20% com foco em alto volume de vegetais, controle de sódio e hidratação elevada.",
+      "placeholder_id": "cutting_deficit_5d",
+      "name": "Cutting Déficit 5d",
+      "description": "Déficit de 15% (~-350 kcal) por 5 dias, proteína 2,2 g/kg, carboidratos concentrados pré/pós-treino e estratégias extras de saciedade (fibras, água).",
+
       "weight_goal": "lose"
     }
   ],
